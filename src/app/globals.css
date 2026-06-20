@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand: #00a8ff;
-  --color-brand-dark: #0086d6;
-  --color-brand-light: #e6f6ff;
+  --color-brand: #7d9b6a;
+  --color-brand-dark: #62804f;
+  --color-brand-light: #eef3e9;
   --color-success: #22c55e;
   --color-success-bg: #dcfce7;
   --color-warning: #f59e0b;
@@ -35,7 +35,7 @@ html.dark {
   --color-surface: #1a2230;
   --color-ink: #e5e7eb;
   --color-ink-soft: #9aa5b4;
-  --color-brand-light: #14304a;
+  --color-brand-light: #25331c;
   --color-border: #28313f;
 }
 

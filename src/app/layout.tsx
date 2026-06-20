@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   title: "Essentiale — Atendimento WhatsApp",
   description: "Atendimento e automação de WhatsApp da Essentiale Fragrance.",
   manifest: "/manifest.json",
-  themeColor: "#00a8ff",
+  themeColor: "#7d9b6a",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Essentiale" },
   viewport: { width: "device-width", initialScale: 1, maximumScale: 1, userScalable: false },
 };
