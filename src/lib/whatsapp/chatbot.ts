@@ -175,6 +175,15 @@ export async function runChatbot(
       await saveState(db, conv.id, automation.id, n.id);
       return "bot";
     }
+    if (result.decision === "done") {
+      // IA finalizou o atendimento (problema resolvido): a própria IA já se
+      // despediu na última mensagem. Encerra e reseta — a próxima mensagem do
+      // cliente recomeça o fluxo do zero (conversa fechada não é reaproveitada).
+      await db.from("conversations")
+        .update({ status: "closed", closed_at: new Date().toISOString(), bot_node_id: null, inactivity_warned_at: null })
+        .eq("id", conv.id);
+      return null;
+    }
     if (outBy(flow, n.id)) return "next";
     await clearState(db, conv.id);
     return null;

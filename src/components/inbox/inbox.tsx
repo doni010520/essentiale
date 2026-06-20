@@ -99,6 +99,7 @@ export function Inbox({
   );
   const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Message | null>(null);
   // Conversa-rascunho transitória (ao clicar num participante): só persiste ao digitar/enviar.
   const [draft, setDraft] = useState<ConversationOverview | null>(null);
   const [draftRealId, setDraftRealId] = useState<string | null>(null);
@@ -421,12 +422,19 @@ export function Inbox({
     });
   }
 
+  // Abre o modal próprio (centralizado) em vez do confirm() nativo do navegador.
   function handleDelete(m: Message) {
     if (!selectedId) return;
+    setDeleteTarget(m);
+  }
+
+  function confirmDelete(scope: "me" | "everyone") {
+    const m = deleteTarget;
+    setDeleteTarget(null);
+    if (!m || !selectedId) return;
     const convId = selectedId;
-    if (!window.confirm("Apagar esta mensagem para todos?")) return;
     startTransition(async () => {
-      await deleteMessageAction(convId, m.id);
+      await deleteMessageAction(convId, m.id, scope);
       const msgs = await fetchMessages(convId);
       setMessagesByConv((prev) => ({ ...prev, [convId]: msgs }));
     });
@@ -879,6 +887,37 @@ export function Inbox({
               </button>
               <button onClick={confirmNote} disabled={!noteText.trim()} className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-40">
                 Adicionar nota
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setDeleteTarget(null)}>
+          <div className="w-full max-w-sm rounded-card bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-ink">Apagar mensagem</h2>
+              <button onClick={() => setDeleteTarget(null)} className="text-ink-soft hover:text-ink"><X size={18} /></button>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => confirmDelete("everyone")}
+                className="w-full rounded-lg bg-danger px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-600"
+              >
+                Apagar para todos
+              </button>
+              <button
+                onClick={() => confirmDelete("me")}
+                className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-gray-50"
+              >
+                Apagar para mim
+              </button>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="w-full rounded-lg px-4 py-2 text-sm font-medium text-ink-soft transition hover:bg-gray-50"
+              >
+                Cancelar
               </button>
             </div>
           </div>

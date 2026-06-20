@@ -1,7 +1,8 @@
 -- ============================================================================
 -- ESSENTIALE — SETUP COMPLETO DO BANCO (rodar UMA vez no SQL Editor do Supabase)
--- Schema base (0001-0020) + domínio Essentiale (0021) + seeds (org, agente,
--- 36 produtos, 17 fragrâncias). Depois rode seed_profile.sql ao criar seu login.
+-- Base (0001-0020) + features de chat (0021-0025) + domínio Essentiale (0026)
+-- + seeds (org, agente, automação, 36 produtos, 17 fragrâncias).
+-- Depois rode seed_profile.sql ao criar seu login.
 -- ============================================================================
 
 
@@ -951,7 +952,91 @@ alter table conversations
   add column if not exists variables jsonb not null default '{}'::jsonb;
 
 
--- ===== migrations/0021_essentiale.sql =====
+-- ===== migrations/0021_super_admin.sql =====
+-- Marca de superadmin (acesso ao painel /superadmin).
+alter table public.profiles
+  add column if not exists super_admin boolean not null default false;
+
+
+-- ===== migrations/0022_internal_messages_mentions.sql =====
+-- Mensagens internas entre atendentes: menções + notificações (sino).
+
+-- Menções em mensagens internas: array de { id, name } dos atendentes marcados.
+alter table public.messages
+  add column if not exists mentions jsonb not null default '[]'::jsonb;
+
+-- Notificações de menção interna (para o sino/badge por atendente).
+create table if not exists public.internal_mentions (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null,
+  conversation_id uuid not null references public.conversations(id) on delete cascade,
+  message_id uuid not null references public.messages(id) on delete cascade,
+  mentioned_user_id uuid not null,
+  created_by uuid,
+  author_name text,
+  excerpt text,
+  contact_name text,
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_internal_mentions_user
+  on public.internal_mentions(mentioned_user_id, read_at);
+create index if not exists idx_internal_mentions_conv
+  on public.internal_mentions(conversation_id);
+
+alter table public.internal_mentions enable row level security;
+
+-- Cada atendente vê e marca como lida apenas as próprias menções.
+drop policy if exists internal_mentions_select on public.internal_mentions;
+create policy internal_mentions_select on public.internal_mentions
+  for select using (mentioned_user_id = auth.uid());
+
+drop policy if exists internal_mentions_update on public.internal_mentions;
+create policy internal_mentions_update on public.internal_mentions
+  for update using (mentioned_user_id = auth.uid());
+
+-- Realtime para o sino.
+alter publication supabase_realtime add table public.internal_mentions;
+
+
+-- ===== migrations/0023_app_logs.sql =====
+-- Logs de aplicação acessíveis fora do Easypanel (lidos no /superadmin e via REST).
+create table if not exists public.app_logs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid,
+  level text not null default 'info',          -- info | warn | error
+  source text not null default 'app',          -- webhook | chatbot | ai | sgp | send | ...
+  message text not null,
+  meta jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_app_logs_created on public.app_logs(created_at desc);
+create index if not exists idx_app_logs_level on public.app_logs(level, created_at desc);
+
+alter table public.app_logs enable row level security;
+-- Sem policies: só o service role (servidor) escreve/lê.
+
+
+-- ===== migrations/0024_inactivity_auto_close.sql =====
+-- Encerramento por inatividade: marca quando o aviso foi enviado (pra não repetir).
+alter table public.conversations
+  add column if not exists inactivity_warned_at timestamptz;
+
+-- Índice pra o cron achar conversas ociosas de forma barata.
+create index if not exists idx_conversations_org_status_lastmsg
+  on public.conversations(organization_id, status, last_message_at);
+
+
+-- ===== migrations/0025_message_deleted_scope.sql =====
+-- Escopo da exclusão: 'me' (só na plataforma) ou 'everyone' (revogada no cliente).
+-- A mensagem permanece no banco (faded na UI) para auditoria/admin.
+alter table public.messages
+  add column if not exists deleted_scope text;
+
+
+-- ===== migrations/0026_essentiale.sql =====
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 0021 — Domínio Essentiale: catálogo, fragrâncias, pedidos, follow-ups, LGPD
 -- Depende de: 0001 (organizations, contacts, conversations), 0002 (current_org_id()).
@@ -1156,6 +1241,24 @@ select
   true
 where not exists (
   select 1 from ai_agents where organization_id = 'aaaaaaaa-0000-0000-0000-000000000001'
+);
+
+
+-- ===== seed_automation.sql =====
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Automação "Atendimento Caroline": flow start → nó de IA → agente ativo (Caroline).
+-- Sem isto, mensagens recebidas ficam na fila e a Caroline não responde.
+-- Idempotente: só cria se ainda não existir uma com esse nome na org.
+-- ─────────────────────────────────────────────────────────────────────────────
+insert into automations (organization_id, name, flow, active)
+select
+  'aaaaaaaa-0000-0000-0000-000000000001',
+  'Atendimento Caroline',
+  $$ {"nodes":[{"id":"start","data":{"kind":"start"}},{"id":"ai1","data":{"kind":"ai","content":"Continue o atendimento como Caroline, consultora da Essentiale."}}],"edges":[{"id":"e1","source":"start","target":"ai1"}]} $$::jsonb,
+  true
+where not exists (
+  select 1 from automations
+  where organization_id = 'aaaaaaaa-0000-0000-0000-000000000001' and name = 'Atendimento Caroline'
 );
 
 

@@ -5,6 +5,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/auth";
 import { getProvider } from "@/lib/whatsapp";
 import { getMessages, getConversations } from "@/lib/data/conversations";
+import { logEvent } from "@/lib/log";
 import type { Channel, ContentType, InternalMention } from "@/lib/types";
 
 const isPreview = () => !process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -335,6 +336,7 @@ export async function sendMessage(
       .eq("id", msg!.id);
   } catch (e) {
     console.error("send error", e);
+    void logEvent("error", "send", `Falha ao enviar mensagem: ${(e as Error)?.message ?? e}`, { conversationId });
     const raw = (e as Error)?.message ?? "";
     // Janela de 24h da Meta (erro 131047/131026) → mensagem amigável.
     deliveryError = /131047|131026|re-?engag|24 ?h|outside|template/i.test(raw)
@@ -857,20 +859,38 @@ export async function editMessageAction(conversationId: string, messageId: strin
   return { ok: true };
 }
 
-/** Apaga uma mensagem (para todos). */
-export async function deleteMessageAction(conversationId: string, messageId: string) {
+/**
+ * Apaga uma mensagem.
+ * - scope "everyone": revoga no WhatsApp do cliente (quando o canal suporta) e marca na plataforma.
+ * - scope "me": apenas na plataforma (o cliente mantém a mensagem).
+ * Em ambos os casos a mensagem PERMANECE no banco (faded na UI) para auditoria/admin —
+ * o conteúdo não é apagado.
+ */
+export async function deleteMessageAction(
+  conversationId: string,
+  messageId: string,
+  scope: "me" | "everyone" = "everyone",
+) {
   if (isPreview()) return { ok: true };
   const supabase = await createClient();
-  const { data: m } = await supabase.from("messages").select("external_id").eq("id", messageId).single();
-  const { channel } = await recipientFor(supabase, conversationId);
-  try {
-    if (m?.external_id) await getProvider(channel).deleteMessage?.(m.external_id);
-  } catch (e) {
-    console.error("delete error", e);
+  let revoked = false;
+  if (scope === "everyone") {
+    const { data: m } = await supabase.from("messages").select("external_id").eq("id", messageId).single();
+    const { channel } = await recipientFor(supabase, conversationId);
+    try {
+      if (m?.external_id && getProvider(channel).deleteMessage) {
+        await getProvider(channel).deleteMessage!(m.external_id);
+        revoked = true;
+      }
+    } catch (e) {
+      console.error("delete error", e);
+      void logEvent("error", "send", `Falha ao revogar mensagem: ${(e as Error)?.message}`, { conversationId });
+    }
   }
-  await supabase.from("messages").update({ is_deleted: true, body: null, media_url: null }).eq("id", messageId);
+  // Mantém body/media (auditoria); só marca como apagada + o escopo.
+  await supabase.from("messages").update({ is_deleted: true, deleted_scope: scope }).eq("id", messageId);
   revalidatePath("/atendimento");
-  return { ok: true };
+  return { ok: true, revoked };
 }
 
 /** Marca as mensagens recebidas da conversa como lidas (✓✓ azul no WhatsApp). */

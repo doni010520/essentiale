@@ -35,6 +35,12 @@ export interface OrgSettings {
   auto_transfer_dept_id?: string;
   auto_transfer_company_min?: number;
   auto_transfer_client_min?: number;
+  // Encerramento por inatividade (avisa, depois despede + fecha + reinicia o fluxo)
+  inactivity_enabled?: boolean;
+  inactivity_warn_min?: number;
+  inactivity_close_min?: number;
+  inactivity_warn_message?: string;
+  inactivity_goodbye_message?: string;
   require_classification?: "never" | "always" | "company" | "client";
   require_close_reason?: boolean;
   csat_policy?: "optional_on" | "optional_off" | "always" | "admin_only";
@@ -354,6 +360,7 @@ export interface Message {
   reply_author?: string | null;
   reactions?: { emoji: string; by: string }[];
   is_deleted?: boolean;
+  deleted_scope?: "me" | "everyone" | null;
   edited?: boolean;
   is_internal?: boolean;
   forwarded?: boolean;

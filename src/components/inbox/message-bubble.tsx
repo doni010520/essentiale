@@ -128,10 +128,20 @@ export function MessageBubble({
   const reactions = message.reactions ?? [];
 
   if (message.is_deleted) {
+    // Apagada: permanece visível para a equipe (auditoria), porém esmaecida.
+    // O conteúdo original é mantido no banco; o cliente é que deixa de vê-la (quando "para todos").
+    const label =
+      message.deleted_scope === "everyone" ? "Apagada para todos"
+      : message.deleted_scope === "me" ? "Apagada (só aqui)"
+      : "Mensagem apagada";
+    const content = message.body ?? (message.content_type !== "text" ? `[${message.content_type}]` : null);
     return (
       <div className={cn("flex", out ? "justify-end" : "justify-start")}>
-        <div className="max-w-[70%] rounded-2xl border border-border bg-gray-50 px-3 py-2 text-sm italic text-ink-soft">
-          🚫 Mensagem apagada
+        <div className="max-w-[70%] rounded-2xl border border-dashed border-border bg-gray-50 px-3 py-2 text-sm text-ink-soft opacity-60">
+          <p className="mb-0.5 flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-ink-soft/80">
+            🚫 {label}
+          </p>
+          {content && <p className="whitespace-pre-wrap break-words italic line-through decoration-ink-soft/40">{content}</p>}
         </div>
       </div>
     );
