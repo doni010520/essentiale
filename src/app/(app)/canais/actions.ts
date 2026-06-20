@@ -215,3 +215,55 @@ export async function renameChannel(channelId: string, name: string) {
   revalidatePath("/canais");
   revalidatePath("/dashboard");
 }
+
+/**
+ * Atualiza nome/telefone e, para canais Meta, as credenciais (token, phone_number_id,
+ * waba_id). O token só é trocado se um novo for informado — em branco mantém o atual.
+ * Revalida o status com as credenciais novas.
+ */
+export async function updateChannel(
+  channelId: string,
+  input: {
+    name?: string;
+    phone?: string;
+    phone_number_id?: string;
+    waba_id?: string;
+    access_token?: string;
+  },
+) {
+  const sb = await createClient();
+  const { data: channel } = await sb.from("channels").select("*").eq("id", channelId).single();
+  if (!channel) throw new Error("Canal não encontrado.");
+
+  const patch: Record<string, unknown> = {};
+  if (input.name !== undefined) patch.name = input.name.trim();
+  if (input.phone !== undefined) patch.phone = input.phone.replace(/\D/g, "") || null;
+
+  if ((channel as Channel).type === "meta_cloud") {
+    const cred = { ...((channel.credentials as Record<string, unknown>) ?? {}) };
+    if (input.phone_number_id) {
+      cred.phone_number_id = input.phone_number_id.trim();
+      patch.external_id = input.phone_number_id.trim();
+    }
+    if (input.waba_id !== undefined && input.waba_id.trim()) cred.waba_id = input.waba_id.trim();
+    if (input.access_token && input.access_token.trim()) cred.access_token = input.access_token.trim();
+    patch.credentials = cred;
+  }
+
+  const { error } = await sb.from("channels").update(patch).eq("id", channelId);
+  if (error) throw new Error(error.message);
+
+  // Revalida a conexão com as credenciais atualizadas.
+  try {
+    const { data: fresh } = await sb.from("channels").select("*").eq("id", channelId).single();
+    if (fresh) {
+      const result = await getProvider(fresh as Channel).connect();
+      await sb.from("channels").update({ status: result.status }).eq("id", channelId);
+    }
+  } catch (e) {
+    console.warn("updateChannel reconnect", (e as Error)?.message);
+  }
+
+  revalidatePath("/canais");
+  revalidatePath("/dashboard");
+}
