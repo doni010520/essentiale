@@ -29,7 +29,7 @@ export default function OnboardingPage() {
   return (
     <AuthShell title="Sua empresa" subtitle="Crie sua organização para começar">
       <form onSubmit={onSubmit} className="space-y-4">
-        <AuthField name="org_name" type="text" label="Nome da empresa" placeholder="Ex.: MVF NET" />
+        <AuthField name="org_name" type="text" label="Nome da empresa" placeholder="Ex.: Essentiale Fragrance" />
         <AuthField name="org_document" type="text" label="CNPJ (opcional)" placeholder="00.000.000/0000-00" />
         {error && <p className="text-xs text-danger">{error}</p>}
         <Button type="submit" className="w-full" disabled={pending}>

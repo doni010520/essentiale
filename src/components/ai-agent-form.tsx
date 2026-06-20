@@ -279,7 +279,7 @@ function AgentWizard({ agent, channels, onClose }: { agent: AiAgentRow | null; c
                 {advanced && (
                   <div className="border-t border-border p-3">
                     <p className="mb-2 text-[11px] text-ink-soft">
-                      Deixe em branco para usar o comportamento padrão da MVF (fluxo + segurança). Preenchendo, você
+                      Deixe em branco para usar o comportamento padrão da Essentiale (fluxo + segurança). Preenchendo, você
                       <strong> substitui toda a espinha dorsal</strong> do agente — controle total, mas você assume o fluxo e as regras.
                     </p>
                     <textarea name="base_prompt" rows={6} defaultValue={c.base_prompt ?? ""}

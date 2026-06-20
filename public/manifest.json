@@ -1,13 +1,13 @@
 {
-  "name": "MVF Chat — Multiatendimento",
-  "short_name": "MVF Chat",
-  "description": "Sistema de multiatendimento WhatsApp da MVF NET",
+  "name": "Essentiale — Atendimento",
+  "short_name": "Essentiale",
+  "description": "Atendimento e automação de WhatsApp da Essentiale Fragrance",
   "start_url": "/atendimento",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#00a8ff",
   "icons": [
-    { "src": "/logo-mvf.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/logo-mvf.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/logo-essentiale.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/logo-essentiale.png", "sizes": "512x512", "type": "image/png" }
   ]
 }

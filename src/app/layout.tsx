@@ -6,11 +6,11 @@ import "./globals.css";
 // para builds em VPS/EasyPanel sem acesso garantido à internet de build.
 
 export const metadata: Metadata = {
-  title: "MVF Chat — Multiatendimento WhatsApp",
-  description: "Sistema de multiatendimento e automações via WhatsApp.",
+  title: "Essentiale — Atendimento WhatsApp",
+  description: "Atendimento e automação de WhatsApp da Essentiale Fragrance.",
   manifest: "/manifest.json",
   themeColor: "#00a8ff",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "MVF Chat" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Essentiale" },
   viewport: { width: "device-width", initialScale: 1, maximumScale: 1, userScalable: false },
 };
 

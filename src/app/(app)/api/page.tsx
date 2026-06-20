@@ -17,7 +17,7 @@ export default async function ApiKeysPage() {
   const [keys, channels] = await Promise.all([getKeys(), getChannels()]);
   return (
     <Scroll>
-      <PageHeader title="Chaves de API" subtitle="Gere chaves para integrar sistemas externos (ERPs, automações) ao MVF." />
+      <PageHeader title="Chaves de API" subtitle="Gere chaves para integrar sistemas externos (ERPs, automações) à Essentiale." />
       <ApiKeysClient keys={keys} channels={channels} />
     </Scroll>
   );

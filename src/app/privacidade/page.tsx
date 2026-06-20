@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Política de Privacidade — MVF",
-  description: "Política de Privacidade da plataforma de atendimento MVF.",
+  title: "Política de Privacidade — Essentiale",
+  description: "Política de Privacidade da plataforma de atendimento da Essentiale Fragrance.",
 };
 
 const UPDATED = "11 de junho de 2026";
@@ -12,7 +12,7 @@ export default function PrivacidadePage() {
     <main className="mx-auto max-w-3xl px-6 py-12 text-ink">
       <div className="mb-8 flex flex-col items-center text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-mvf.png" alt="MVF" className="mb-4 h-20 w-auto rounded-xl" />
+        <img src="/logo-essentiale.png" alt="Essentiale" className="mb-4 h-20 w-auto rounded-xl" />
         <h1 className="text-2xl font-semibold">Política de Privacidade</h1>
         <p className="text-sm text-ink-soft">Última atualização: {UPDATED}</p>
       </div>
@@ -21,7 +21,7 @@ export default function PrivacidadePage() {
         <section>
           <h2 className="mb-2 text-base font-semibold text-ink">1. Quem somos</h2>
           <p>
-            A MVF (&ldquo;nós&rdquo;) opera uma plataforma de atendimento ao cliente que integra canais de
+            A Essentiale (&ldquo;nós&rdquo;) opera uma plataforma de atendimento ao cliente que integra canais de
             mensagens, incluindo o WhatsApp, para permitir que empresas se comuniquem com seus contatos.
             Esta Política descreve como coletamos, usamos e protegemos as informações tratadas na plataforma.
           </p>
