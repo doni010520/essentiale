@@ -1,6 +1,6 @@
 -- ============================================================================
 -- ESSENTIALE — SETUP COMPLETO DO BANCO (rodar UMA vez no SQL Editor do Supabase)
--- Base (0001-0020) + features de chat (0021-0025) + domínio Essentiale (0026)
+-- Base (0001-0020) + chat (0021-0025) + Essentiale (0026) + grants (0027)
 -- + seeds (org, agente, automação, 36 produtos, 17 fragrâncias).
 -- Depois rode seed_profile.sql ao criar seu login.
 -- ============================================================================
@@ -1207,6 +1207,27 @@ drop policy if exists consent_all on consent_log;
 create policy consent_all on consent_log for all
   using (organization_id = current_org_id())
   with check (organization_id = current_org_id());
+
+
+-- ===== migrations/0027_grants.sql =====
+-- ─────────────────────────────────────────────────────────────────────────────
+-- GRANTs para os roles do Supabase (anon, authenticated, service_role).
+-- O Supabase normalmente aplica isso automaticamente, mas quando o schema é
+-- provisionado via SQL cru (Management API / SQL Editor), os grants podem faltar
+-- e tudo dá "permission denied" mesmo com RLS correto. A segurança continua por
+-- conta do RLS (já habilitado nas tabelas) — o grant só permite o role TENTAR.
+-- Rodar por último, depois de todas as tabelas criadas. Idempotente.
+-- ─────────────────────────────────────────────────────────────────────────────
+grant usage on schema public to anon, authenticated, service_role;
+
+grant all on all tables in schema public to anon, authenticated, service_role;
+grant all on all sequences in schema public to anon, authenticated, service_role;
+grant all on all functions in schema public to anon, authenticated, service_role;
+
+-- Tabelas/sequências/funções criadas no futuro herdam os mesmos grants.
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
 
 
 -- ===== seed_essentiale.sql =====
