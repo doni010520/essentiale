@@ -89,6 +89,7 @@ REGRAS DURAS (nunca viole):
 - 1ª compra: 10% de desconto. Cartão até 3x ou Pix.
 - Loja é virtual (Recife/Casa Forte); sem visita; há ponto de retirada parceiro; entrega nacional.
 - Sempre use a ferramenta buscar_produto antes de informar preço.
+- Se buscar_produto vier vazio, é só FALHA DE BUSCA — tente um termo mais simples (ex: só "difusor", só "essência") ou liste a categoria com listar_catalogo. NUNCA diga ao cliente que o produto está indisponível/sem estoque por causa de busca vazia. A disponibilidade real é o campo "disponivel" de cada produto retornado.
 - Para mostrar FOTO de produto, SEMPRE chame a ferramenta enviar_foto_produto (uma vez por produto). NUNCA escreva URLs de imagem, links .webp/storage ou markdown de imagem (![...](...)) no texto — o cliente vê como link cru, não como foto. Você pode citar o link da PÁGINA do produto (url) normalmente, mas a FOTO vai sempre pela ferramenta.
 
 QUANDO ESCALAR PARA HUMANO:
@@ -303,6 +304,16 @@ const ESSENTIALE_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = TOOL_SCHE
   },
 }));
 
+// ── Busca textual tolerante (acento-normalizada, por palavras) ──
+/** Normaliza para busca: minúsculo e sem acentos. */
+function norm(s: string): string {
+  return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+const BUSCA_STOPWORDS = new Set([
+  "de", "da", "do", "com", "para", "pra", "e", "o", "a", "os", "as",
+  "um", "uma", "em", "no", "na", "que", "ml", "g",
+]);
+
 // ── Execução das ferramentas ──
 
 interface ToolExecCtx {
@@ -369,22 +380,51 @@ async function executeTool(
   try {
     switch (name) {
       case "buscar_produto": {
+        // Busca tolerante: por slug (exato), por categoria, ou por PALAVRAS — pontua
+        // cada produto por quantos termos casam em nome+categoria+fragrância+descrição
+        // (acento-normalizado). Evita o falso "não temos" quando as palavras do termo
+        // não estão coladas no nome (ex: "difusor Felicità" casa "Difusor de Varetas
+        // para Ambientes Felicità 250ml").
         let q = db.from("products")
-          .select("slug, nome, categoria, preco_centavos, url_produto, descricao, caracteristicas, exemplos_de_uso, cuidados, foto_arquivo, ativo, estoque")
+          .select("slug, nome, categoria, preco_centavos, url_produto, descricao, fragrancia, foto_arquivo, ativo, estoque")
           .eq("organization_id", organizationId)
           .eq("ativo", true);
         if (args.slug) q = q.eq("slug", String(args.slug));
-        else if (args.nome) q = q.ilike("nome", `%${args.nome}%`);
-        else if (args.categoria) q = q.eq("categoria", String(args.categoria));
-        const { data } = await q.limit(5);
-        if (!data?.length) return { encontrado: false, mensagem: "Produto não encontrado no catálogo." };
-        type ProdRow = { slug: string; nome: string; categoria: string; preco_centavos: number; url_produto: string | null; descricao: string | null; estoque: number | null };
+        else if (args.categoria && !args.nome) q = q.eq("categoria", String(args.categoria));
+        const { data } = await q.limit(args.slug ? 1 : 80);
+        type ProdRow = { slug: string; nome: string; categoria: string; preco_centavos: number; url_produto: string | null; descricao: string | null; fragrancia: string | null; estoque: number | null };
+        let rows = (data ?? []) as ProdRow[];
+
+        if (!args.slug && args.nome) {
+          const termos = norm(String(args.nome)).split(/\s+/).filter((t) => t.length >= 2 && !BUSCA_STOPWORDS.has(t));
+          if (termos.length) {
+            rows = rows
+              .map((p) => {
+                const texto = norm(`${p.nome} ${p.categoria} ${p.fragrancia ?? ""} ${p.descricao ?? ""}`);
+                const score = termos.reduce((s, t) => s + (texto.includes(t) ? 1 : 0), 0);
+                return { p, score };
+              })
+              .filter((x) => x.score > 0)
+              .sort((a, b) => b.score - a.score)
+              .slice(0, 5)
+              .map((x) => x.p);
+          } else {
+            rows = rows.slice(0, 5);
+          }
+        } else {
+          rows = rows.slice(0, 5);
+        }
+
+        if (!rows.length) {
+          return { encontrado: false, mensagem: "Nenhum produto casou com esse termo de busca. Tente outra palavra ou use listar_catalogo. ATENÇÃO: isto NÃO significa falta de estoque — nunca diga ao cliente que está indisponível por causa disso." };
+        }
         return {
           encontrado: true,
-          produtos: (data as ProdRow[]).map((p) => ({
+          produtos: rows.map((p) => ({
             slug: p.slug,
             nome: p.nome,
             categoria: p.categoria,
+            fragrancia: p.fragrancia,
             preco: `R$ ${((p.preco_centavos ?? 0) / 100).toFixed(2).replace(".", ",")}`,
             preco_centavos: p.preco_centavos,
             url: p.url_produto,
