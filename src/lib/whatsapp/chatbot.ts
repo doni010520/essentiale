@@ -109,14 +109,16 @@ export async function runChatbot(
 
   const send = async (text: string) => {
     if (!text?.trim()) return;
+    let failed = false;
     const res = await provider.sendText({ to, text }).catch((e) => {
+      failed = true;
       void logEvent("error", "send", `Falha ao enviar texto: ${(e as Error)?.message ?? e}`, { conversationId: conv.id, channel: channel.type }, conv.organization_id);
       return { externalId: undefined };
     });
     await db.from("messages").insert({
       organization_id: conv.organization_id, conversation_id: conv.id,
       direction: "out", sender_type: "bot", content_type: "text",
-      body: text, external_id: res.externalId ?? null, status: "sent",
+      body: text, external_id: res.externalId ?? null, status: failed ? "failed" : "sent",
     });
   };
   /** Envia texto de nó com substituição de merge fields. */
@@ -125,14 +127,16 @@ export async function runChatbot(
   const sendMedia = async (url: string, kind: "image" | "audio" | "video" | "document", caption?: string) => {
     if (!url) return;
     const cap = caption ? applyVars(caption, ctx()) : undefined;
+    let failed = false;
     const res = await provider.sendMedia({ to, url, caption: cap, kind }).catch((e) => {
+      failed = true;
       void logEvent("error", "send", `Falha ao enviar mídia: ${(e as Error)?.message ?? e}`, { conversationId: conv.id, kind, channel: channel.type }, conv.organization_id);
       return { externalId: undefined };
     });
     await db.from("messages").insert({
       organization_id: conv.organization_id, conversation_id: conv.id,
       direction: "out", sender_type: "bot", content_type: kind,
-      body: cap ?? null, media_url: url, external_id: res.externalId ?? null, status: "sent",
+      body: cap ?? null, media_url: url, external_id: res.externalId ?? null, status: failed ? "failed" : "sent",
     });
   };
 

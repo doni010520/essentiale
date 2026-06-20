@@ -159,6 +159,7 @@ export function MessageBubble({
             out ? "rounded-br-sm bg-brand text-white" : "rounded-bl-sm bg-surface text-ink",
             message.sender_type === "bot" && "bg-violet-100 text-violet-900",
             message.sender_type === "system" && "bg-gray-200 text-gray-600 italic",
+            out && message.status === "failed" && "ring-2 ring-red-400",
           )}
         >
           {!out && message.author_name &&
@@ -193,6 +194,9 @@ export function MessageBubble({
           {message.body && <Linkify text={message.body} className="whitespace-pre-wrap break-words" />}
           <div className={cn("mt-1 flex items-center justify-end gap-1 text-[10px]", out ? "text-white/70" : "text-ink-soft")} suppressHydrationWarning>
             {message.edited && <span className="italic">editada</span>}
+            {out && message.status === "failed" && (
+              <span className="font-semibold text-red-500">Não enviada</span>
+            )}
             {time}
             {out && <StatusIcon status={message.status} />}
           </div>
