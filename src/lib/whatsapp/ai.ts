@@ -89,6 +89,7 @@ REGRAS DURAS (nunca viole):
 - 1ª compra: 10% de desconto. Cartão até 3x ou Pix.
 - Loja é virtual (Recife/Casa Forte); sem visita; há ponto de retirada parceiro; entrega nacional.
 - Sempre use a ferramenta buscar_produto antes de informar preço.
+- Para mostrar FOTO de produto, SEMPRE chame a ferramenta enviar_foto_produto (uma vez por produto). NUNCA escreva URLs de imagem, links .webp/storage ou markdown de imagem (![...](...)) no texto — o cliente vê como link cru, não como foto. Você pode citar o link da PÁGINA do produto (url) normalmente, mas a FOTO vai sempre pela ferramenta.
 
 QUANDO ESCALAR PARA HUMANO:
 - Atacado/revenda/B2B/logomarca → setor "atacado"
@@ -155,7 +156,7 @@ const TOOL_SCHEMAS = [
   },
   {
     name: "enviar_foto_produto",
-    description: "Envia a foto de um produto pelo WhatsApp. Use quando o cliente quiser ver o produto antes de comprar.",
+    description: "Envia a foto REAL de um produto como IMAGEM no WhatsApp. SEMPRE use esta ferramenta quando o cliente pedir ou quiser ver foto — chame UMA VEZ para CADA produto. É a ÚNICA forma de enviar imagem; NUNCA escreva a URL da foto, link .webp ou markdown de imagem no texto (o cliente vê isso como link cru, não como foto).",
     parameters: {
       type: "object" as const,
       properties: {
@@ -234,6 +235,16 @@ const TOOL_SCHEMAS = [
     },
   },
   {
+    name: "registrar_optout",
+    description: "Registra o descadastro (opt-out) do cliente das mensagens promocionais quando ele pedir em linguagem natural (ex: 'não quero mais receber promoções', 'me tira da lista'). Desliga o consentimento de marketing e registra o pedido conforme a LGPD. Não use para o cliente que apenas encerrou o atendimento — só quando ele recusa o marketing.",
+    parameters: {
+      type: "object" as const,
+      properties: {
+        motivo: { type: "string", description: "Breve descrição do que o cliente disse (opcional, para registro)." },
+      },
+    },
+  },
+  {
     name: "agendar_followup",
     description: "Agenda um follow-up automático para o cliente (pós-compra, entrega, reativação, aniversário).",
     parameters: {
@@ -301,6 +312,39 @@ interface ToolExecCtx {
   contactId?: string;
   contactPhone?: string;
   sendMediaToCustomer?: (url: string, kind: "image" | "audio" | "video" | "document", caption?: string) => Promise<void>;
+}
+
+// ── Validação de formato (Guia §8.2) ──
+// Validadores leves usados na tool criar_pedido para evitar gravar dados malformados.
+// Mantidos locais ao ai.ts para não tocar em outros módulos; espelham a lógica de
+// src/lib/validation.ts (cujos validadores não são exportados).
+
+/** Mantém apenas dígitos. */
+function onlyDigits(v: string): string {
+  return v.replace(/\D/g, "");
+}
+
+/** Valida CPF: 11 dígitos + dígitos verificadores. Aceita com ou sem máscara. */
+function isValidCpf(v: string): boolean {
+  const d = onlyDigits(v);
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+  const calc = (len: number) => {
+    let sum = 0;
+    for (let i = 0; i < len; i++) sum += parseInt(d[i], 10) * (len + 1 - i);
+    const r = (sum * 10) % 11;
+    return r === 10 || r === 11 ? 0 : r;
+  };
+  return calc(9) === parseInt(d[9], 10) && calc(10) === parseInt(d[10], 10);
+}
+
+/** Valida CEP: exatamente 8 dígitos. Aceita com ou sem hífen. */
+function isValidCep(v: string): boolean {
+  return onlyDigits(v).length === 8;
+}
+
+/** Validação simples de e-mail (regex básica, sem pretensão de RFC completa). */
+function isValidEmail(v: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 }
 
 /** Converte DD/MM/AAAA (ou DD/MM/AA) para YYYY-MM-DD; null se não parsear. */
@@ -450,6 +494,23 @@ async function executeTool(
         const primeiraCompra = args.primeira_compra === true;
         const desconto = primeiraCompra ? Math.round(subtotal * 0.1) : 0;
         const dados = (args.dados_cliente as Record<string, string>) ?? {};
+
+        // ── Validação de formato (Guia §8.2) ──
+        // Antes de gravar o pedido, conferimos CPF, CEP e e-mail. Se algum estiver
+        // malformado, NÃO criamos o pedido e devolvemos um erro estruturado para que
+        // a Caroline peça o dado correto ao cliente (sem inventar nada).
+        const tipoEntregaCheck = String(args.tipo_entrega ?? "entrega");
+        if (dados.cpf && !isValidCpf(dados.cpf)) {
+          return { ok: false, erro: "CPF inválido", campo: "cpf", mensagem: "Pode conferir o CPF pra mim? Parece que faltou um dígito 🌷" };
+        }
+        if (dados.email && !isValidEmail(dados.email)) {
+          return { ok: false, erro: "E-mail inválido", campo: "email", mensagem: "Pode confirmar o e-mail? Acho que ficou faltando uma partinha (algo como nome@email.com) 🌷" };
+        }
+        // CEP só é exigível quando há entrega (na retirada não precisa endereço).
+        if (tipoEntregaCheck !== "retirada" && dados.cep && !isValidCep(dados.cep)) {
+          return { ok: false, erro: "CEP inválido", campo: "cep", mensagem: "Pode confirmar o CEP? Ele tem 8 números 🌷" };
+        }
+
         const tipoEntrega = String(args.tipo_entrega ?? "entrega");
         const frete = tipoEntrega === "retirada" ? 0 : 0; // frete a calcular depois
         const total = subtotal - desconto + frete;
@@ -536,6 +597,28 @@ async function executeTool(
         return { ok: true, mensagem: "Dados registrados com finalidade declarada (LGPD)." };
       }
 
+      case "registrar_optout": {
+        // Opt-out por linguagem natural (Guia §13). Desliga o consentimento e registra
+        // no consent_log. Espelha o handler determinístico de "PARAR" do inbound.ts.
+        const contactId = tctx.contactId;
+        if (!contactId) return { ok: false, erro: "Contato da conversa não encontrado." };
+        await db.from("contacts")
+          .update({ consentimento_marketing: false, updated_at: new Date().toISOString() })
+          .eq("id", contactId)
+          .eq("organization_id", organizationId);
+        await db.from("consent_log").insert({
+          organization_id: organizationId,
+          contact_id: contactId,
+          tipo: "opt_out",
+          canal: "whatsapp",
+          mensagem_ref: conversationId,
+        }).catch(() => {});
+        return {
+          ok: true,
+          mensagem: "Pronto, registrei seu descadastro das mensagens promocionais. Se mudar de ideia, é só falar comigo. 🌷",
+        };
+      }
+
       case "agendar_followup": {
         const { data: conv } = await db.from("conversations").select("contact_id").eq("id", conversationId).maybeSingle();
         const dias = Number(args.dias ?? 3);
@@ -615,6 +698,21 @@ function buildSystemPrompt(ctx: AiTurnContext): string {
   );
 
   return parts.join("");
+}
+
+// ── Sanitização da resposta antes de enviar ao cliente ──
+// Rede de segurança: o modelo às vezes cola markdown de imagem ou a URL crua do
+// Storage no texto em vez de chamar enviar_foto_produto. O cliente veria um link
+// feio (não uma foto). Removemos esses artefatos — a imagem de verdade vai pela tool.
+const MD_IMAGE_RE = /!\[[^\]]*\]\([^)]*\)/g;
+const STORAGE_URL_RE = /https?:\/\/\S*\/storage\/v1\/object\/\S+/gi;
+function sanitizeOutgoing(raw: string): string {
+  return (raw || "")
+    .replace(MD_IMAGE_RE, "")
+    .replace(STORAGE_URL_RE, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 // ── Loop do agente (OpenAI function-calling) ──
@@ -712,13 +810,13 @@ export async function runAiTurn(ctx: AiTurnContext): Promise<AiTurnResult> {
 
     // Sem chamadas de ferramenta: resposta final.
     if (!toolCalls.length) {
-      const text = (message.content ?? "").trim();
+      const text = sanitizeOutgoing(message.content ?? "");
       if (text) await ctx.sendToCustomer(text);
       break;
     }
 
     // Texto intermediário antes de executar as ferramentas (ex: "Um momento...").
-    const intermediateText = (message.content ?? "").trim();
+    const intermediateText = sanitizeOutgoing(message.content ?? "");
     if (intermediateText) await ctx.sendToCustomer(intermediateText);
 
     // Executa cada ferramenta e devolve o resultado como mensagem role:"tool".

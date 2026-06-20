@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { getProvider } from "@/lib/whatsapp";
+import { scheduleRelationshipFollowups, processDueFollowups } from "@/lib/postsale";
 import type { Channel } from "@/lib/types";
 
 const DEFAULT_WARN =
@@ -61,6 +62,9 @@ export async function GET(req: Request) {
   let closedCount = 0;
   let warnedCount = 0;
   let transferredCount = 0;
+  let followupsCreated = 0;
+  let followupsSent = 0;
+  let followupsAwaiting = 0;
 
   // Carrega todas as orgs com settings de auto-close ou auto-transfer
   const { data: orgs } = await db.from("organizations").select("id, settings");
@@ -152,7 +156,29 @@ export async function GET(req: Request) {
         transferredCount += ids.length;
       }
     }
+
+    // ── Pós-venda / fidelização (Guia §12) ──────────────────────────────────
+    // 1) Materializa as réguas de relacionamento devidas como followups pendentes.
+    // 2) Processa todos os followups devidos (pendente + scheduled_at <= now),
+    //    enviando texto livre apenas dentro da janela de 24h da Meta (fora dela
+    //    marca 'aguardando_template' e pula). Nunca derruba o cron.
+    try {
+      followupsCreated += await scheduleRelationshipFollowups(db, org.id, now);
+      const r = await processDueFollowups(db, org.id, now);
+      followupsSent += r.sent;
+      followupsAwaiting += r.awaiting;
+    } catch {
+      // Falha no pós-venda não pode quebrar o cron (auto-close/transfer já rodaram).
+    }
   }
 
-  return NextResponse.json({ ok: true, closed: closedCount, warned: warnedCount, transferred: transferredCount });
+  return NextResponse.json({
+    ok: true,
+    closed: closedCount,
+    warned: warnedCount,
+    transferred: transferredCount,
+    followupsCreated,
+    followupsSent,
+    followupsAwaiting,
+  });
 }

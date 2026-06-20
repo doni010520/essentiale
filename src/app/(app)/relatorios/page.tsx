@@ -1,25 +1,29 @@
 import { Scroll } from "@/components/scroll";
 import { PageHeader } from "@/components/ui";
-import { ReportsCharts } from "@/components/reports-charts";
-import { ReportsTabs } from "@/components/reports-tabs";
-import {
-  getReportData,
-  getAgentReports,
-  getClientReports,
-  getCsatReport,
-} from "@/lib/data/reports";
+import { getKpiReport, type PeriodDays } from "@/lib/data/reports";
+import { RelatoriosClient } from "./relatorios-client";
 
-export default async function RelatoriosPage() {
-  const [data, agents, clients, csat] = await Promise.all([
-    getReportData(),
-    getAgentReports(),
-    getClientReports(),
-    getCsatReport(),
-  ]);
+function parsePeriod(raw: string | undefined): PeriodDays {
+  const n = Number(raw);
+  if (n === 7 || n === 90) return n;
+  return 30;
+}
+
+export default async function RelatoriosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ periodo?: string }>;
+}) {
+  const periodDays = parsePeriod((await searchParams)?.periodo);
+  const report = await getKpiReport(periodDays);
+
   return (
     <Scroll>
-      <PageHeader title="Relatórios" subtitle="Acompanhe os indicadores de atendimento da sua empresa." />
-      <ReportsTabs data={data} agents={agents} clients={clients} csat={csat} />
+      <PageHeader
+        title="Relatórios"
+        subtitle="Indicadores de sucesso do atendimento Essentiale (Guia §1.3)."
+      />
+      <RelatoriosClient report={report} />
     </Scroll>
   );
 }

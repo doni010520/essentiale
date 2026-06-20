@@ -76,6 +76,24 @@ async function resolveMentions(db: DB, channel: Channel, groupJid: string, body:
 
 const MEDIA_TYPES = new Set(["image", "audio", "video", "document", "sticker"]);
 
+// ── Opt-out LGPD (Guia §13: "opt-out fácil") ──
+// Comandos curtos que o cliente envia para se descadastrar das mensagens promocionais.
+// Comparamos contra o texto NORMALIZADO (sem acento, sem pontuação, minúsculo).
+const OPT_OUT_KEYWORDS = new Set(["parar", "sair", "descadastrar", "cancelar", "stop", "pare"]);
+
+const OPT_OUT_CONFIRMATION =
+  "Pronto! Você não receberá mais nossas mensagens promocionais. Se mudar de ideia, é só falar comigo. 🌷";
+
+/** Normaliza um texto para casar comandos: remove acentos/pontuação, baixa caixa e apara. */
+function normalizeCommand(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // remove diacríticos (combining marks)
+    .replace(/[^a-zA-Z\s]/g, " ") // remove pontuação/emojis
+    .trim()
+    .toLowerCase();
+}
+
 /**
  * Verifica se o horário atual (ajustado pelo tzOffset) está dentro de alguma faixa
  * do schedule da automação. Retorna true se schedule for null/undefined (sem restrição).
@@ -406,6 +424,51 @@ export async function persistInbound(messages: InboundMessage[]) {
           continue;
         }
       }
+    }
+
+    // ====== Opt-out LGPD (Guia §13: "opt-out fácil") ======
+    // ANTES de acionar a IA, verificamos se a mensagem do cliente é um comando de
+    // descadastro ("PARAR", "SAIR", "STOP"...). Sendo, desligamos o consentimento de
+    // marketing, registramos no consent_log, confirmamos ao cliente e NÃO acionamos o
+    // chatbot para esta mensagem. Só vale para mensagens recebidas em 1:1 (não grupos,
+    // não ecos do próprio número) e quando o texto NORMALIZADO é exatamente uma das
+    // palavras-chave — assim "quero cancelar meu pedido" não dispara o opt-out.
+    if (!fromMe && !isGroup && body && OPT_OUT_KEYWORDS.has(normalizeCommand(body))) {
+      try {
+        // 1) Desliga o consentimento de marketing do contato.
+        await db.from("contacts")
+          .update({ consentimento_marketing: false, updated_at: new Date().toISOString() })
+          .eq("id", contact!.id)
+          .eq("organization_id", org);
+
+        // 2) Registra o opt-out (trilha de auditoria LGPD).
+        await db.from("consent_log").insert({
+          organization_id: org,
+          contact_id: contact!.id,
+          tipo: "opt_out",
+          canal: "whatsapp",
+          mensagem_ref: conversationId,
+        }).catch(() => {});
+
+        // 3) Confirma ao cliente pelo mesmo canal e grava a saída em messages.
+        await getProvider(channel as Channel).sendText({ to: msg.from, text: OPT_OUT_CONFIRMATION }).catch(() => {});
+        await db.from("messages").insert({
+          organization_id: org,
+          conversation_id: conversationId,
+          direction: "out",
+          sender_type: "system",
+          content_type: "text",
+          body: OPT_OUT_CONFIRMATION,
+          status: "sent",
+        });
+
+        void logEvent("info", "optout", "Cliente solicitou opt-out de marketing", { conversationId, contactId: contact!.id }, org);
+      } catch (e) {
+        // Falha no opt-out não pode quebrar o restante do webhook.
+        void logEvent("error", "optout", `Falha ao processar opt-out: ${(e as Error)?.message ?? e}`, { conversationId }, org);
+      }
+      // Em qualquer caso, NÃO acionamos a IA para um comando de descadastro.
+      continue;
     }
 
     // Chatbot: roda só em mensagens recebidas (não nos ecos do próprio número) e
