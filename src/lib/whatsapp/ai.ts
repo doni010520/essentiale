@@ -442,7 +442,10 @@ async function executeTool(
           return { ok: false, mensagem: "Foto não disponível para este produto." };
         }
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-        const fotoUrl = `${supabaseUrl}/storage/v1/object/public/media/${data.foto_arquivo}`;
+        // Usa o endpoint de TRANSFORMAÇÃO do Supabase, que entrega JPEG. A WhatsApp
+        // Cloud API só renderiza JPEG/PNG como imagem — o .webp do bucket (endpoint
+        // /object/) é aceito pela API mas chega como link/arquivo, não como foto.
+        const fotoUrl = `${supabaseUrl}/storage/v1/render/image/public/media/${data.foto_arquivo}?width=1024&quality=85`;
         const preco = `R$ ${((data.preco_centavos ?? 0) / 100).toFixed(2).replace(".", ",")}`;
         if (tctx.sendMediaToCustomer) {
           await tctx.sendMediaToCustomer(fotoUrl, "image", `${data.nome} — ${preco}`);
