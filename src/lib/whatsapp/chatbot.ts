@@ -1,5 +1,6 @@
 import type { createServiceClient } from "@/lib/supabase/server";
 import { getProvider } from "./index";
+import { logEvent } from "@/lib/log";
 import { getAiAgent, getAiAgentById, runAiTurn, isAiAllowed, type AiTurnResult } from "./ai";
 import { sgpForOrg, sgpForIntegration } from "@/lib/sgp";
 import type { Channel } from "@/lib/types";
@@ -108,7 +109,10 @@ export async function runChatbot(
 
   const send = async (text: string) => {
     if (!text?.trim()) return;
-    const res = await provider.sendText({ to, text }).catch(() => ({ externalId: undefined }));
+    const res = await provider.sendText({ to, text }).catch((e) => {
+      void logEvent("error", "send", `Falha ao enviar texto: ${(e as Error)?.message ?? e}`, { conversationId: conv.id, channel: channel.type }, conv.organization_id);
+      return { externalId: undefined };
+    });
     await db.from("messages").insert({
       organization_id: conv.organization_id, conversation_id: conv.id,
       direction: "out", sender_type: "bot", content_type: "text",
@@ -121,7 +125,10 @@ export async function runChatbot(
   const sendMedia = async (url: string, kind: "image" | "audio" | "video" | "document", caption?: string) => {
     if (!url) return;
     const cap = caption ? applyVars(caption, ctx()) : undefined;
-    const res = await provider.sendMedia({ to, url, caption: cap, kind }).catch(() => ({ externalId: undefined }));
+    const res = await provider.sendMedia({ to, url, caption: cap, kind }).catch((e) => {
+      void logEvent("error", "send", `Falha ao enviar mídia: ${(e as Error)?.message ?? e}`, { conversationId: conv.id, kind, channel: channel.type }, conv.organization_id);
+      return { externalId: undefined };
+    });
     await db.from("messages").insert({
       organization_id: conv.organization_id, conversation_id: conv.id,
       direction: "out", sender_type: "bot", content_type: kind,
