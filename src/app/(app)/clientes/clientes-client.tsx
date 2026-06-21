@@ -64,6 +64,53 @@ function Avatar({ contact }: { contact: CrmContact }) {
   );
 }
 
+function ContactCard({ contact }: { contact: CrmContact }) {
+  return (
+    <Link
+      href={`/clientes/${contact.id}`}
+      className="block rounded-card border border-border bg-surface px-4 py-3 transition hover:border-brand"
+    >
+      <div className="flex items-start gap-3">
+        <Avatar contact={contact} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate font-medium text-ink">{contact.name ?? "—"}</p>
+              <p className="truncate text-xs text-ink-soft">{formatPhone(contact.phone) || "—"}</p>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-sm font-semibold text-ink">
+                {contact.total_centavos > 0 ? brl(contact.total_centavos) : "—"}
+              </p>
+              <p className="text-xs text-ink-soft">
+                {contact.pedidos_count} pedido{contact.pedidos_count !== 1 ? "s" : ""}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <StageBadge stage={stageOf(contact.status_funil)} />
+            {contact.tipo_cliente && (
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-ink-soft">
+                {contact.tipo_cliente}
+              </span>
+            )}
+            {contact.consentimento_marketing ? (
+              <span className="rounded-full bg-success-bg px-2 py-0.5 text-xs font-medium text-green-700">
+                Opt-in
+              </span>
+            ) : (
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                Sem opt-in
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export function ClientesClient({
   contacts,
   indicadores,
@@ -144,7 +191,7 @@ export function ClientesClient({
       </div>
 
       {/* Toggle Lista | Funil + Exportar */}
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1 rounded-lg border border-border bg-white p-1">
           <button
             type="button"
@@ -179,7 +226,7 @@ export function ClientesClient({
       {/* Filtros */}
       <div className="mb-4 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[220px] flex-1">
+          <div className="relative w-full min-w-[220px] md:flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft" />
             <input
               value={search}
@@ -192,7 +239,7 @@ export function ClientesClient({
           <select
             value={tipo}
             onChange={(e) => setTipo(e.target.value)}
-            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+            className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand md:flex-none"
           >
             {tipos.map((t) => (
               <option key={t} value={t}>{t === "Todos" ? "Tipo: todos" : t}</option>
@@ -202,7 +249,7 @@ export function ClientesClient({
           <select
             value={cidade}
             onChange={(e) => setCidade(e.target.value)}
-            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+            className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand md:flex-none"
           >
             {cidades.map((c) => (
               <option key={c} value={c}>{c === "Todas" ? "Cidade: todas" : c}</option>
@@ -212,7 +259,7 @@ export function ClientesClient({
           <select
             value={etapa}
             onChange={(e) => setEtapa(e.target.value as "todas" | FunnelStage)}
-            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+            className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand md:flex-none"
           >
             <option value="todas">Etapa: todas</option>
             {FUNNEL_STAGES.map((s) => (
@@ -262,7 +309,13 @@ export function ClientesClient({
         />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-card border border-border">
+          {/* Mobile: cards empilhados */}
+          <div className="space-y-3 md:hidden">
+            {filtered.map((c) => <ContactCard key={c.id} contact={c} />)}
+          </div>
+
+          {/* Desktop: tabela */}
+          <div className="hidden overflow-x-auto rounded-card border border-border md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-gray-50 text-left text-xs font-medium text-ink-soft">

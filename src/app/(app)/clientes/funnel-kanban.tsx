@@ -42,7 +42,7 @@ export function FunnelKanban({ contacts }: { contacts: CrmContact[] }) {
   }
 
   return (
-    <div className="flex h-full gap-4 overflow-x-auto p-4">
+    <div className="flex h-full min-h-0 gap-4 overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth p-3 [-webkit-overflow-scrolling:touch] sm:p-4">
       {FUNNEL_STAGES.map((col) => {
         const items = byStage[col.key];
         return (
@@ -61,7 +61,7 @@ export function FunnelKanban({ contacts }: { contacts: CrmContact[] }) {
               if (id) void move(id, from, col.key);
             }}
             className={cn(
-              "flex w-[280px] shrink-0 flex-col rounded-card bg-canvas/60 transition",
+              "flex h-full min-h-0 w-[280px] shrink-0 flex-col rounded-card bg-canvas/60 transition",
               dragOver === col.key && "ring-2 ring-brand ring-offset-1",
             )}
           >

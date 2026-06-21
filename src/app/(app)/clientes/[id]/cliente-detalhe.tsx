@@ -179,7 +179,7 @@ export function ClienteDetalhe({ contato, pedidos, consentLog }: Props) {
   const avatarInitials = (contato.name ?? "?").slice(0, 2).toUpperCase();
 
   return (
-    <div className="h-full overflow-y-auto px-6 pb-12">
+    <div className="h-full overflow-y-auto px-4 pb-12 sm:px-6">
       {/* Cabeçalho */}
       <div className="pt-5">
         <Link
@@ -207,7 +207,7 @@ export function ClienteDetalhe({ contato, pedidos, consentLog }: Props) {
       />
 
       {/* Resumo (cards) */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard label="Total gasto (LTV)" value={money(ltv)} icon={<Wallet size={18} />} />
         <StatCard label="Pedidos" value={numPedidos} icon={<ShoppingBag size={18} />} accent="bg-violet-100 text-violet-700" />
         <StatCard label="Ticket médio" value={money(ticketMedio)} icon={<Receipt size={18} />} accent="bg-amber-100 text-amber-700" />
@@ -224,7 +224,7 @@ export function ClienteDetalhe({ contato, pedidos, consentLog }: Props) {
         <div className="space-y-6 lg:col-span-2">
           {/* Dados do cliente (editável) */}
           <Card>
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-semibold text-ink">Dados do cliente</h2>
               <div className="flex items-center gap-3">
                 {savedMsg && <span className="text-xs text-brand">{savedMsg}</span>}

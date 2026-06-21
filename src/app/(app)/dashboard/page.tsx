@@ -12,7 +12,7 @@ export default async function DashboardPage() {
 
   return (
     <Scroll>
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-6xl px-4 sm:px-0">
         <header className="flex flex-col gap-4 py-8 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-ink">Olá! Bem-vindo 👋</h1>
@@ -29,7 +29,7 @@ export default async function DashboardPage() {
         </header>
 
         {/* Indicadores */}
-        <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: "Conversas totais", value: report.totals.all, icon: <MessageSquare size={20} />, accent: "bg-brand-light text-brand" },
             { label: "Em espera", value: report.totals.queued, icon: <Clock size={20} />, accent: "bg-amber-100 text-amber-600" },

@@ -50,17 +50,17 @@ export function RelatoriosClient({ report }: { report: KpiReport }) {
   return (
     <div className="space-y-5 pb-4">
       {/* Filtro de período */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <p className="text-sm text-ink-soft">
           Indicadores de sucesso · últimos {report.periodDays} dias
         </p>
-        <div className="flex gap-1 rounded-lg bg-gray-100 p-0.5 text-sm">
+        <div className="flex w-full gap-1 rounded-lg bg-gray-100 p-0.5 text-sm sm:w-auto">
           {PERIODS.map((p) => (
             <button
               key={p.value}
               onClick={() => setPeriod(p.value)}
               className={cn(
-                "rounded-md px-3 py-1.5 font-medium transition",
+                "flex-1 rounded-md px-3 py-1.5 font-medium transition sm:flex-none",
                 report.periodDays === p.value ? "bg-surface text-ink shadow-sm" : "text-ink-soft hover:text-ink",
               )}
             >
@@ -220,6 +220,7 @@ export function RelatoriosClient({ report }: { report: KpiReport }) {
       {/* Série diária: conversas × pedidos × receita */}
       <Card>
         <h3 className="mb-3 text-sm font-semibold text-ink">Conversas e pedidos por dia</h3>
+        <div className="w-full min-w-0">
         <ResponsiveContainer width="100%" height={280}>
           <ComposedChart data={report.byDay}>
             <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
@@ -241,12 +242,14 @@ export function RelatoriosClient({ report }: { report: KpiReport }) {
             <Line yAxisId="right" type="monotone" dataKey="revenueCentavos" name="Receita" stroke="#8b5cf6" strokeWidth={2} dot={false} />
           </ComposedChart>
         </ResponsiveContainer>
+        </div>
       </Card>
 
       {/* Funil de conversão (gráfico) */}
       {conversion.conversations > 0 && (
         <Card>
           <h3 className="mb-3 text-sm font-semibold text-ink">Funil: conversas → pedido</h3>
+          <div className="w-full min-w-0">
           <ResponsiveContainer width="100%" height={140}>
             <BarChart
               layout="vertical"
@@ -262,6 +265,7 @@ export function RelatoriosClient({ report }: { report: KpiReport }) {
               <Bar dataKey="value" fill={BRAND} radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
+          </div>
         </Card>
       )}
     </div>

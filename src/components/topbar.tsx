@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Settings, MessageCircle, User, LogOut, ChevronDown, Moon, Sun } from "lucide-react";
 import { APP_VERSION } from "@/lib/version";
 import { MentionsBell } from "@/components/mentions-bell";
+import { MobileNav } from "@/components/mobile-nav";
 
 export function Topbar({
   userName,
@@ -26,14 +27,17 @@ export function Topbar({
     .join("");
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-surface px-6">
-      <Link
-        href="/atendimento"
-        className="flex items-center gap-2 text-sm font-medium text-ink-soft transition hover:text-brand"
-      >
-        <MessageCircle size={18} />
-        Acessar o chat
-      </Link>
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-surface px-4 md:px-6">
+      <div className="flex items-center gap-2">
+        <MobileNav />
+        <Link
+          href="/atendimento"
+          className="flex items-center gap-2 text-sm font-medium text-ink-soft transition hover:text-brand"
+        >
+          <MessageCircle size={18} />
+          Acessar o chat
+        </Link>
+      </div>
 
       <div className="flex items-center gap-1">
         <span
