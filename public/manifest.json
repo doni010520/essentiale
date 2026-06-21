@@ -7,7 +7,7 @@
   "background_color": "#ffffff",
   "theme_color": "#7d9b6a",
   "icons": [
-    { "src": "/logo-essentiale.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/logo-essentiale.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/icon-essentiale.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-essentiale.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
