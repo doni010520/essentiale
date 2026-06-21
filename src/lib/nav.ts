@@ -9,11 +9,9 @@ import {
   Users,
   Layers,
   Settings,
-  Plug,
   Tag,
   History,
   Building2,
-  KeyRound,
   Download,
   Contact,
   ShoppingBag,
@@ -57,6 +55,7 @@ export const NAV: NavGroup[] = [
       { href: "/catalogo", label: "Catálogo", icon: ShoppingBag },
       { href: "/pedidos", label: "Pedidos", icon: Package },
       { href: "/clientes", label: "Clientes", icon: Contact },
+      { href: "/api/export-contacts", label: "Exportar contatos", icon: Download },
     ],
   },
   {
@@ -65,16 +64,8 @@ export const NAV: NavGroup[] = [
       { href: "/empresa", label: "Dados da empresa", icon: Building2 },
       { href: "/atendentes", label: "Atendentes", icon: Users },
       { href: "/departamentos", label: "Departamentos", icon: Layers },
-      { href: "/ajustes", label: "Ajustes", icon: Settings },
-    ],
-  },
-  {
-    title: "Integrações",
-    items: [
-      { href: "/integracoes", label: "Integrações", icon: Plug },
-      { href: "/api", label: "Chaves de API", icon: KeyRound },
       { href: "/auditoria", label: "Auditoria", icon: History },
-      { href: "/api/export-contacts", label: "Exportar contatos", icon: Download },
+      { href: "/ajustes", label: "Ajustes", icon: Settings },
     ],
   },
 ];
