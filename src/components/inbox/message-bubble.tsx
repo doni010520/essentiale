@@ -192,7 +192,16 @@ export function MessageBubble({
             message.content_type !== "text" && <p className="mb-1 text-xs opacity-80">[{message.content_type}]</p>
           )}
           {message.body && <Linkify text={message.body} className="whitespace-pre-wrap break-words" />}
-          <div className={cn("mt-1 flex items-center justify-end gap-1 text-[10px]", out ? "text-white/70" : "text-ink-soft")} suppressHydrationWarning>
+          <div className={cn(
+            "mt-1 flex items-center justify-end gap-1 text-[10px]",
+            // A cor do rodapé (hora + status) acompanha o FUNDO do balão:
+            // bot (violeta claro) e system (cinza claro) precisam de texto escuro;
+            // mensagem do atendente humano (fundo verde/brand) usa texto claro.
+            message.sender_type === "bot" ? "text-violet-500"
+              : message.sender_type === "system" ? "text-gray-500"
+              : out ? "text-white/80"
+              : "text-ink-soft",
+          )} suppressHydrationWarning>
             {message.edited && <span className="italic">editada</span>}
             {out && message.status === "failed" && (
               <span className="font-semibold text-red-500">Não enviada</span>
