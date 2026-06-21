@@ -25,8 +25,10 @@ export function Sidebar() {
   }
 
   return (
-    // Espaçador: reserva a largura da barra fininha no layout (a barra real é overlay fixo).
-    <div className="w-[72px] shrink-0">
+    // Espaçador: reserva a largura da barra no layout (a barra real é overlay fixo).
+    // Acompanha a expansão para o conteúdo ENCOLHER quando a sidebar surge — sem ficar
+    // escondido atrás dela.
+    <div className={cn("shrink-0 transition-all duration-200", expanded ? "w-60" : "w-[72px]")}>
       <aside
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
