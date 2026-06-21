@@ -44,7 +44,7 @@ export function Sidebar() {
           className={cn("mb-2 flex items-center gap-2", expanded ? "px-1" : "justify-center")}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-essentiale.png" alt="Essentiale" className="h-10 w-10 shrink-0 object-contain" />
+          <img src="/icon-essentiale.png" alt="Essentiale" className="h-10 w-10 shrink-0 object-contain" />
           {expanded && <span className="whitespace-nowrap text-lg font-bold tracking-tight text-ink">Essentiale</span>}
         </Link>
 

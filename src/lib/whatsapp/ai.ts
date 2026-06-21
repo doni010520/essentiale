@@ -116,6 +116,7 @@ REGRAS DURAS (nunca viole):
 - Loja é virtual (Recife/Casa Forte); sem visita; há ponto de retirada parceiro; entrega nacional.
 - Sempre use a ferramenta buscar_produto antes de informar preço.
 - Se buscar_produto vier vazio, é só FALHA DE BUSCA — tente um termo mais simples (ex: só "difusor", só "essência") ou liste a categoria com listar_catalogo. NUNCA diga ao cliente que o produto está indisponível/sem estoque por causa de busca vazia. A disponibilidade real é o campo "disponivel" de cada produto retornado.
+- CRM (enriquecimento natural): sempre que descobrir, na conversa, a fragrância/produto/ocasião que o cliente curte, a data de aniversário dele, ou como ele chegou (Instagram, indicação), chame registrar_cliente para gravar (interesses, data_aniversario, origem_lead). Faça de leve, sem interrogatório — só registre o que surgir naturalmente.
 - Para mostrar FOTO de produto, SEMPRE chame a ferramenta enviar_foto_produto (uma vez por produto). NUNCA escreva URLs de imagem, links .webp/storage ou markdown de imagem (![...](...)) no texto — o cliente vê como link cru, não como foto. Você pode citar o link da PÁGINA do produto (url) normalmente, mas a FOTO vai sempre pela ferramenta.
 
 QUANDO ESCALAR PARA HUMANO:
@@ -245,7 +246,7 @@ const TOOL_SCHEMAS = [
   },
   {
     name: "registrar_cliente",
-    description: "Registra ou atualiza os dados do cliente no CRM. Use quando coletar nome, CPF, e-mail, endereço, aniversário. Informe a finalidade.",
+    description: "Registra/atualiza o cliente no CRM (nome, CPF, e-mail, endereço, aniversário, INTERESSES/fragrância preferida e ORIGEM do lead). Chame SEMPRE que aprender algo novo do cliente — não só no fechamento: ao descobrir a fragrância/ocasião que ele gosta, registre em 'interesses'; ao saber a data de nascimento, registre em 'data_aniversario'. Informe a finalidade (relacionamento).",
     parameters: {
       type: "object" as const,
       properties: {
@@ -257,6 +258,8 @@ const TOOL_SCHEMAS = [
         cidade: { type: "string" },
         data_aniversario: { type: "string", description: "Formato DD/MM/AAAA" },
         tipo_cliente: { type: "string", enum: ["consumidor", "lojista"] },
+        interesses: { type: "array", items: { type: "string" }, description: "Fragrâncias/produtos/ocasiões que o cliente demonstrou interesse (ex: ['Felicità', 'presente Dia das Mães', 'difusor para escritório'])" },
+        origem_lead: { type: "string", description: "Como o cliente chegou, se ele contar: 'instagram', 'indicacao', 'organico', 'evento', etc." },
         consentimento_marketing: { type: "boolean", description: "Cliente autorizou envio de promoções?" },
       },
     },
@@ -664,10 +667,17 @@ async function executeTool(
         if (args.endereco) patch.address = args.endereco;
         if (args.cpf) patch.cpf = args.cpf;
         if (args.tipo_cliente) patch.tipo_cliente = args.tipo_cliente;
+        if (args.origem_lead) patch.origem_lead = args.origem_lead;
         if (args.consentimento_marketing !== undefined) patch.consentimento_marketing = args.consentimento_marketing;
         if (args.data_aniversario) {
           const iso = parseDataBR(String(args.data_aniversario));
           if (iso) patch.data_aniversario = iso;
+        }
+        // interesses (jsonb array): aceita array ou string separada por vírgula.
+        if (Array.isArray(args.interesses) && args.interesses.length) {
+          patch.interesses = args.interesses;
+        } else if (typeof args.interesses === "string" && args.interesses.trim()) {
+          patch.interesses = args.interesses.split(",").map((s) => s.trim()).filter(Boolean);
         }
 
         if (Object.keys(patch).length) {

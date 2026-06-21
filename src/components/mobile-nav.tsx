@@ -58,7 +58,7 @@ export function MobileNav() {
         <div className="mb-2 flex items-center justify-between px-3">
           <Link href="/dashboard" title="Essentiale" className="flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-essentiale.png" alt="Essentiale" className="h-10 w-10 shrink-0 object-contain" />
+            <img src="/icon-essentiale.png" alt="Essentiale" className="h-10 w-10 shrink-0 object-contain" />
             <span className="whitespace-nowrap text-lg font-bold tracking-tight text-ink">Essentiale</span>
           </Link>
           <button

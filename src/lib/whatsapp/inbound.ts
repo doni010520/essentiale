@@ -315,6 +315,15 @@ export async function persistInbound(messages: InboundMessage[]) {
     }).select("created_at").single();
     const inboundTs = insertedMsg?.created_at ?? null;
 
+    // Auto-enriquecimento do CRM: lead chegado pelo anúncio do Instagram (texto padrão
+    // do guia §4.4). Só define origem_lead se ainda não houver (não sobrescreve).
+    if (!fromMe && body) {
+      const b = body.toLowerCase();
+      if (b.includes("tenho interesse") || b.includes("anúncio") || b.includes("anuncio") || b.includes("queria mais informa") || b.includes("respondeu ao seu")) {
+        await db.from("contacts").update({ origem_lead: "instagram" }).eq("id", contact!.id).is("origem_lead", null).catch(() => {});
+      }
+    }
+
     await db
       .from("conversations")
       .update({ last_message_at: new Date().toISOString(), inactivity_warned_at: null })
