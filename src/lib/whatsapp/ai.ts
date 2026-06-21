@@ -1,7 +1,33 @@
 import OpenAI from "openai";
 import type { createServiceClient } from "@/lib/supabase/server";
+import { getProvider } from "./index";
+import type { Channel } from "@/lib/types";
 
 type DB = ReturnType<typeof createServiceClient>;
+
+/**
+ * Envia um alerta interno pro WhatsApp do financeiro (número na env FINANCEIRO_WHATSAPP,
+ * com DDI — preencher depois). Usa o canal conectado da org. Se a variável estiver vazia
+ * ou o envio falhar (ex: fora da janela de 24h da Meta), apenas ignora — nunca quebra o
+ * fluxo do cliente. Para alertas confiáveis fora de 24h, será necessário template HSM.
+ */
+async function notifyFinanceiro(db: DB, organizationId: string, text: string): Promise<void> {
+  try {
+    const fin = (process.env.FINANCEIRO_WHATSAPP || "").replace(/\D/g, "");
+    if (!fin) return;
+    const { data: channel } = await db
+      .from("channels")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .eq("status", "connected")
+      .limit(1)
+      .maybeSingle();
+    if (!channel) return;
+    await getProvider(channel as Channel).sendText({ to: fin, text });
+  } catch {
+    /* alerta interno nunca derruba o atendimento */
+  }
+}
 
 // ── Interfaces exportadas (mesmas da referência para compatibilidade com chatbot.ts) ──
 
@@ -602,6 +628,15 @@ async function executeTool(
         }
 
         const totalDisplay = `R$ ${(total / 100).toFixed(2).replace(".", ",")}`;
+
+        // Roteamento: avisa o financeiro que entrou um pedido novo.
+        const itensResumo = orderItems.map((oi) => `${oi.quantidade}x ${oi.nome}`).join(", ");
+        await notifyFinanceiro(
+          db,
+          organizationId,
+          `🛒 *Novo pedido — Essentiale*\nCliente: ${dados.nome || "—"}\nWhatsApp: ${telefone || "—"}\nItens: ${itensResumo}\nTotal: ${totalDisplay}\nPagamento: ${paymentMethod === "pix" ? "Pix" : "Cartão/link"}\nEntrega: ${tipoEntrega}\nPedido #${order.id}`,
+        );
+
         return {
           ok: true,
           order_id: order.id,
@@ -701,6 +736,12 @@ async function executeTool(
           is_internal: true,
           status: "sent",
         });
+        // Roteamento: avisa o financeiro pra validar o pagamento (§9.1 — sempre humano).
+        await notifyFinanceiro(
+          db,
+          organizationId,
+          `💳 *Comprovante recebido* — validar pagamento.\nConversa #${conversationId}. Abra o atendimento pra conferir o comprovante e confirmar o pedido.`,
+        );
         return { ok: true };
       }
 
