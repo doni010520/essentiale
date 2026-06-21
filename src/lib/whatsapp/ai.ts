@@ -589,6 +589,18 @@ async function executeTool(
         if (orderErr || !order) return { erro: "Não foi possível criar o pedido. Por favor, tente novamente." };
         // Cria itens
         await db.from("order_items").insert(orderItems.map((oi) => ({ ...oi, order_id: order.id })));
+
+        // Enriquece o CRM (contacts) com os dados do pedido — um pedido é o sinal mais
+        // forte de que o contato virou cliente. Não sobrescreve o nome do WhatsApp.
+        if (tctx.contactId) {
+          const crm: Record<string, unknown> = { status_funil: "cliente", updated_at: new Date().toISOString() };
+          if (dados.email) crm.email = dados.email;
+          if (dados.cpf) crm.cpf = dados.cpf;
+          if (dados.endereco) crm.address = dados.endereco;
+          if (dados.cidade) crm.city = dados.cidade;
+          await db.from("contacts").update(crm).eq("id", tctx.contactId).eq("organization_id", organizationId).catch(() => {});
+        }
+
         const totalDisplay = `R$ ${(total / 100).toFixed(2).replace(".", ",")}`;
         return {
           ok: true,
