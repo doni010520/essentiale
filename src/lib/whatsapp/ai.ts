@@ -110,7 +110,7 @@ CATÁLOGO, FOTOS E LINKS:
 - Consulte buscar_produto antes de falar preço — preço e disponibilidade vêm sempre de lá (o campo "disponivel" diz o que está pronto). Se uma busca voltar vazia, é só refinar: tente um termo mais simples (só "difusor", só "vela") ou use listar_catalogo para ver a categoria.
 - Mostre produtos com a ferramenta enviar_foto_produto: a foto sai com nome + preço + uma frase gostosa, e o cliente recebe junto dois botões — "Ver detalhes" e "Quero esse". Mande a foto primeiro; o link da página você envia quando ele escolher um produto (clicou "Ver detalhes", pediu o link, ou vai fechar).
 - Sempre o produto do ASSUNTO ATUAL (o que ele pediu agora). Havendo muitas opções, mostre as 3–4 principais da categoria ou pergunte qual ele quer ver.
-- Botões: "Ver detalhes (produto: <slug>)" → mande o link da página (campo url) + uma descrição curta e gostosa; "Quero esse (produto: <slug>)" → confirme com carinho e já comece a coletar os dados do pedido. Aja pelo slug — você já sabe qual é.
+- Botões: "Ver detalhes (produto: <slug>)" → busque o produto com buscar_produto (pelo slug) e apresente um detalhe gostoso e completo, com base nos campos retornados: descrição sensorial, fragrância, características (tamanho/duração), modo de uso, cuidados, o PREÇO e o link da página (campo url). "Quero esse (produto: <slug>)" → confirme com carinho e já comece a coletar os dados do pedido. Aja pelo slug — você já sabe qual é.
 - Citação: quando a mensagem vier com '(respondendo à sua mensagem: "<trecho>")', o trecho é a legenda da foto que você mandou — é exatamente o produto que ele quer; siga com esse.
 
 PEDIDO E PAGAMENTO:
@@ -416,13 +416,13 @@ async function executeTool(
         // não estão coladas no nome (ex: "difusor Felicità" casa "Difusor de Varetas
         // para Ambientes Felicità 250ml").
         let q = db.from("products")
-          .select("slug, nome, categoria, preco_centavos, url_produto, descricao, fragrancia, foto_arquivo, ativo, estoque")
+          .select("slug, nome, categoria, preco_centavos, url_produto, descricao, fragrancia, caracteristicas, exemplos_de_uso, cuidados, foto_arquivo, ativo, estoque")
           .eq("organization_id", organizationId)
           .eq("ativo", true);
         if (args.slug) q = q.eq("slug", String(args.slug));
         else if (args.categoria && !args.nome) q = q.eq("categoria", String(args.categoria));
         const { data } = await q.limit(args.slug ? 1 : 80);
-        type ProdRow = { slug: string; nome: string; categoria: string; preco_centavos: number; url_produto: string | null; descricao: string | null; fragrancia: string | null; estoque: number | null };
+        type ProdRow = { slug: string; nome: string; categoria: string; preco_centavos: number; url_produto: string | null; descricao: string | null; fragrancia: string | null; caracteristicas: unknown; exemplos_de_uso: unknown; cuidados: string | null; estoque: number | null };
         let rows = (data ?? []) as ProdRow[];
 
         if (!args.slug && args.nome) {
@@ -459,6 +459,9 @@ async function executeTool(
             preco_centavos: p.preco_centavos,
             url: p.url_produto,
             descricao: p.descricao,
+            caracteristicas: p.caracteristicas ?? null,
+            modo_de_uso: p.exemplos_de_uso ?? null,
+            cuidados: p.cuidados ?? null,
             disponivel: (p.estoque ?? 0) > 0,
           })),
         };
