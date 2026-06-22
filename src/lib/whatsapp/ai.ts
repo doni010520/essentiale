@@ -118,6 +118,7 @@ REGRAS DURAS (nunca viole):
 - Se buscar_produto vier vazio, é só FALHA DE BUSCA — tente um termo mais simples (ex: só "difusor", só "essência") ou liste a categoria com listar_catalogo. NUNCA diga ao cliente que o produto está indisponível/sem estoque por causa de busca vazia. A disponibilidade real é o campo "disponivel" de cada produto retornado.
 - CRM (enriquecimento natural): sempre que descobrir, na conversa, a fragrância/produto/ocasião que o cliente curte, a data de aniversário dele, ou como ele chegou (Instagram, indicação), chame registrar_cliente para gravar (interesses, data_aniversario, origem_lead). Faça de leve, sem interrogatório — só registre o que surgir naturalmente.
 - Para mostrar FOTO de produto, SEMPRE chame a ferramenta enviar_foto_produto (uma vez por produto). NUNCA escreva URLs de imagem, links .webp/storage ou markdown de imagem (![...](...)) no texto — o cliente vê como link cru, não como foto. FOTO PRIMEIRO, LINK DEPOIS: ao apresentar/recomendar produtos, LIDERE com a FOTO (enviar_foto_produto) + nome + preço + uma frase sensorial curta. NÃO despeje o link da página de cara, nem vários links de uma vez. SEGURE o link e só envie DEPOIS que o cliente ESCOLHER/decidir um produto específico (ex.: "quero esse", pediu o link, ou vai fechar). Se houver várias opções, mostre as fotos das principais (ou pergunte qual ele quer ver) — antes da escolha, foto e preço bastam.
+- CITAÇÃO/RESPOSTA: se o cliente RESPONDER (citar) uma mensagem sua, você verá no histórico o prefixo '(respondendo à sua mensagem: "<trecho>") ...'. Esse trecho é geralmente a legenda da FOTO que você mandou ("Nome do produto — R$preço"). Use isso para saber EXATAMENTE a qual produto/foto ele se refere ao dizer "quero essa", "essa aí", "essa mesmo" — e aí sim mande o LINK correto daquele produto e siga pro pedido. Não pergunte "qual delas?" se a citação já diz qual é.
 
 PROATIVIDADE (NUNCA pareça um robô travado):
 - Responda SEMPRE à ÚLTIMA mensagem do cliente, exatamente ao que ele pediu. Não volte a um assunto anterior nem ignore o que ele acabou de dizer.
@@ -841,7 +842,7 @@ export async function runAiTurn(ctx: AiTurnContext): Promise<AiTurnResult> {
   // Histórico recente (exclui notas internas)
   const { data: hist } = await ctx.db
     .from("messages")
-    .select("direction, sender_type, body, content_type, is_internal")
+    .select("direction, sender_type, body, content_type, is_internal, reply_excerpt")
     .eq("conversation_id", ctx.conversationId)
     .order("created_at", { ascending: true })
     .limit(30);
@@ -853,20 +854,31 @@ export async function runAiTurn(ctx: AiTurnContext): Promise<AiTurnResult> {
     body: string | null;
     content_type: string;
     is_internal?: boolean;
+    reply_excerpt?: string | null;
   }[])
     .filter((m) => !m.is_internal)
     .map((m): Msg | null => {
-      const content = m.body ?? (m.content_type !== "text" ? `[${m.content_type}]` : "");
+      let content = m.body ?? (m.content_type !== "text" ? `[${m.content_type}]` : "");
       if (!content) return null;
+      // Citação: se o cliente RESPONDEU/citou uma mensagem (ex.: a foto de um produto
+      // que a Caroline mandou, cuja legenda é "Nome — R$preço"), injeta o trecho citado
+      // para ela saber EXATAMENTE a qual produto ele se refere ao dizer "quero essa".
+      if (m.sender_type === "contact" && m.reply_excerpt) {
+        content = `(respondendo à sua mensagem: "${m.reply_excerpt}") ${content}`;
+      }
       return m.sender_type === "contact"
         ? { role: "user", content }
         : { role: "assistant", content };
     })
     .filter((m): m is Msg => m !== null);
 
-  // Garante última mensagem do usuário
-  const lastUser = [...history].reverse().find((m) => m.role === "user");
-  if (ctx.userText.trim() && (lastUser?.content as string) !== ctx.userText) {
+  // Garante última mensagem do usuário (sem duplicar a que já veio do banco — que pode
+  // ter o prefixo de citação "(respondendo à sua mensagem: ...)").
+  const userTextTrim = ctx.userText.trim();
+  const alreadyHasCurrent = history.some(
+    (m) => m.role === "user" && typeof m.content === "string" && m.content.includes(userTextTrim),
+  );
+  if (userTextTrim && !alreadyHasCurrent) {
     history.push({ role: "user", content: ctx.userText });
   }
 
