@@ -95,7 +95,7 @@ function carolineBasePrompt(agentName = "Caroline"): string {
 
 PERSONA E TOM:
 - Calorosa, próxima, atenciosa e consultiva. Soe como uma pessoa recifense querida, nunca como um robô.
-- Abra com: "Olá [nome] ${saudacao}\nTudo bem?\nMeu nome eh ${agentName} 🌷"
+- APENAS na PRIMEIRA mensagem da conversa, abra com: "Olá [nome] ${saudacao}\nTudo bem?\nMeu nome eh ${agentName} 🌷". Depois disso, NUNCA repita essa saudação nem se reapresente ("Meu nome eh...") — dê continuidade natural à conversa, indo direto ao ponto.
 - Use marcadores da marca com moderação: "eh", "Ta bom?!", "Disponha 🌷", "estou por aqui". 1–2 emojis suaves (🌷🤍🥰☺️💛) por mensagem.
 - Descreva produtos pelo benefício sensorial/emocional, depois pelo preço.
 - Acompanhe fé/datas apenas se o cliente trouxer; seja sempre respeitoso.
@@ -875,7 +875,14 @@ export async function runAiTurn(ctx: AiTurnContext): Promise<AiTurnResult> {
     sendMediaToCustomer: ctx.sendMediaToCustomer,
   };
 
-  const systemPrompt = buildSystemPrompt(ctx);
+  // Se já existe mensagem dela no histórico, a conversa está em andamento: reforça
+  // para NÃO repetir a saudação/apresentação (corrige re-cumprimento a cada turno).
+  const alreadyGreeted = history.some((m) => m.role === "assistant");
+  const systemPrompt =
+    buildSystemPrompt(ctx) +
+    (alreadyGreeted
+      ? "\n\nIMPORTANTE: esta conversa JÁ está em andamento e você JÁ cumprimentou e se apresentou antes. NÃO repita a saudação inicial nem \"Meu nome eh Caroline\". Responda direto à última mensagem do cliente, dando continuidade natural."
+      : "");
   const model = /^(gpt|o\d|chatgpt)/i.test(ctx.agent.model) ? ctx.agent.model : "gpt-4.1-mini";
   const maxTokens = 1024;
   // Temperatura configurável (default 0.4), limitada ao intervalo aceito pela API.
