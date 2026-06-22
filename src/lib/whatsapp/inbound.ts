@@ -233,7 +233,9 @@ export async function persistInbound(messages: InboundMessage[]) {
       .select("id, status, bot_node_id, ai_enabled")
       .eq("channel_id", channel.id)
       .eq("contact_id", contact!.id)
-      .in("status", ["bot", "queued", "open"])
+      // Continuidade: pega a ÚLTIMA conversa do contato em QUALQUER status (inclusive
+      // encerrada). Um fio só por cliente — conversas encerradas são REABERTAS abaixo,
+      // não duplicadas.
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -355,6 +357,15 @@ export async function persistInbound(messages: InboundMessage[]) {
           continue; // não precisa processar mais nada
         }
       }
+    }
+
+    // ====== Continuidade: reabre a MESMA conversa encerrada (não fragmenta) ======
+    // Mensagem nova do cliente numa conversa encerrada (e que NÃO era resposta de pesquisa
+    // de satisfação — essa já deu 'continue' acima) reabre a mesma conversa em vez de criar
+    // outra. Mantém um único fio por contato.
+    if (!fromMe && convStatus === "closed") {
+      convStatus = automationActive ? "bot" : "queued";
+      await db.from("conversations").update({ status: convStatus, closed_at: null }).eq("id", conversationId);
     }
 
     // ====== Mensagens automáticas por evento ======
