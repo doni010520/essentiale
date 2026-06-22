@@ -253,6 +253,9 @@ export function parseMetaWebhook(payload: any): InboundMessage[] {
           mediaUrl: undefined, // mídia da Meta requer download via /media (etapa posterior)
           externalId: m?.id,
           timestamp: m?.timestamp,
+          // Citação/resposta: a Cloud API só envia o id da mensagem citada (sem o conteúdo).
+          // O inbound resolve o trecho (excerpt) buscando essa mensagem no nosso banco.
+          replyTo: m?.context?.id ? { externalId: String(m.context.id) } : undefined,
         });
       }
     }
