@@ -70,6 +70,7 @@ export interface AiTurnContext {
   sendToCustomer: (text: string) => Promise<void>;
   sendAudioToCustomer?: (audio: { buffer: Buffer; mime: string }, transcript: string) => Promise<void>;
   sendMediaToCustomer?: (url: string, kind: "image" | "audio" | "video" | "document", caption?: string) => Promise<void>;
+  sendButtonsToCustomer?: (imageUrl: string, body: string, buttons: { id: string; title: string }[]) => Promise<void>;
 }
 
 // ── Hora atual no fuso de Recife/Brasília ──
@@ -120,6 +121,7 @@ REGRAS DURAS (nunca viole):
 - Para mostrar FOTO de produto, SEMPRE chame a ferramenta enviar_foto_produto (uma vez por produto). NUNCA escreva URLs de imagem, links .webp/storage ou markdown de imagem (![...](...)) no texto — o cliente vê como link cru, não como foto. FOTO PRIMEIRO, LINK DEPOIS: ao apresentar/recomendar produtos, LIDERE com a FOTO (enviar_foto_produto) + nome + preço + uma frase sensorial curta. NÃO despeje o link da página de cara, nem vários links de uma vez. SEGURE o link e só envie DEPOIS que o cliente ESCOLHER/decidir um produto específico (ex.: "quero esse", pediu o link, ou vai fechar). Se houver várias opções, mostre as fotos das principais (ou pergunte qual ele quer ver) — antes da escolha, foto e preço bastam.
 - CITAÇÃO/RESPOSTA: se o cliente RESPONDER (citar) uma mensagem sua, você verá no histórico o prefixo '(respondendo à sua mensagem: "<trecho>") ...'. Esse trecho é geralmente a legenda da FOTO que você mandou ("Nome do produto — R$preço"). Use isso para saber EXATAMENTE a qual produto/foto ele se refere ao dizer "quero essa", "essa aí", "essa mesmo" — e aí sim mande o LINK correto daquele produto e siga pro pedido. Não pergunte "qual delas?" se a citação já diz qual é.
 - ASSUNTO ATUAL: fotos, preços e recomendações devem ser SEMPRE da categoria/produto que o cliente está tratando AGORA (o que ele pediu nas últimas mensagens). NUNCA traga produtos de um assunto/conversa ANTERIOR. Ex.: se ele acabou de perguntar de VELAS e pede "me manda fotos", mande fotos de VELAS — jamais de difusores que vocês conversaram dias atrás. Use buscar_produto com o termo do assunto atual antes de enviar. Se houver muitas opções, mande as 3–4 principais da categoria atual ou pergunte qual ele quer ver.
+- BOTÕES NA FOTO: ao enviar a foto de um produto (enviar_foto_produto), o cliente recebe automaticamente dois botões — "Ver detalhes" e "Quero esse". Quando ele clicar, chega no histórico como 'Ver detalhes (produto: <slug>)' ou 'Quero esse (produto: <slug>)'. Aja pelo slug, sem perguntar "qual?": "Ver detalhes" → mande o LINK da página daquele produto (campo url/pagina) + uma descrição curta e gostosa; "Quero esse" → confirme com carinho e JÁ comece a coleta dos dados do pedido daquele produto.
 
 PROATIVIDADE (NUNCA pareça um robô travado):
 - Responda SEMPRE à ÚLTIMA mensagem do cliente, exatamente ao que ele pediu. Não volte a um assunto anterior nem ignore o que ele acabou de dizer.
@@ -360,6 +362,7 @@ interface ToolExecCtx {
   contactId?: string;
   contactPhone?: string;
   sendMediaToCustomer?: (url: string, kind: "image" | "audio" | "video" | "document", caption?: string) => Promise<void>;
+  sendButtonsToCustomer?: (imageUrl: string, body: string, buttons: { id: string; title: string }[]) => Promise<void>;
 }
 
 // ── Validação de formato (Guia §8.2) ──
@@ -524,10 +527,24 @@ async function executeTool(
         // /object/) é aceito pela API mas chega como link/arquivo, não como foto.
         const fotoUrl = `${supabaseUrl}/storage/v1/render/image/public/media/${data.foto_arquivo}?width=1024&quality=85`;
         const preco = `R$ ${((data.preco_centavos ?? 0) / 100).toFixed(2).replace(".", ",")}`;
-        if (tctx.sendMediaToCustomer) {
-          await tctx.sendMediaToCustomer(fotoUrl, "image", `${data.nome} — ${preco}`);
+        const caption = `${data.nome} — ${preco}`;
+        // Dois botões de resposta; o id carrega o slug pra IA saber o produto no clique.
+        const buttons = [
+          { id: `detalhes:${data.slug}`, title: "Ver detalhes" },
+          { id: `quero:${data.slug}`, title: "Quero esse" },
+        ];
+        if (tctx.sendButtonsToCustomer) {
+          await tctx.sendButtonsToCustomer(fotoUrl, caption, buttons);
+        } else if (tctx.sendMediaToCustomer) {
+          await tctx.sendMediaToCustomer(fotoUrl, "image", caption);
         }
-        return { ok: true, enviado: !!tctx.sendMediaToCustomer, url: fotoUrl, nome: data.nome, preco };
+        return {
+          ok: true,
+          enviado: !!(tctx.sendButtonsToCustomer || tctx.sendMediaToCustomer),
+          nome: data.nome,
+          preco,
+          pagina: data.url_produto,
+        };
       }
 
       case "calcular_frete": {
@@ -892,6 +909,7 @@ export async function runAiTurn(ctx: AiTurnContext): Promise<AiTurnResult> {
     contactId: convRow?.contact_id ?? undefined,
     contactPhone: ctx.contactPhone,
     sendMediaToCustomer: ctx.sendMediaToCustomer,
+    sendButtonsToCustomer: ctx.sendButtonsToCustomer,
   };
 
   // Se já existe mensagem dela no histórico, a conversa está em andamento: reforça

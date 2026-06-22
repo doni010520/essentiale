@@ -15,6 +15,14 @@ export interface SendMediaParams {
   replyId?: string;
 }
 
+export interface SendButtonsParams {
+  to: string;
+  body: string; // texto do card (legenda do produto)
+  imageUrl?: string; // imagem no topo do card (header)
+  buttons: { id: string; title: string }[]; // botões de resposta (máx 3; título ≤ 20 chars)
+  replyId?: string;
+}
+
 export interface ConnectResult {
   status: Channel["status"];
   qrCode?: string; // base64/data-url quando aplicável (UAZAPI)
@@ -31,6 +39,9 @@ export interface ChannelProvider {
   status(): Promise<Channel["status"]>;
   sendText(params: SendTextParams): Promise<{ externalId?: string }>;
   sendMedia(params: SendMediaParams): Promise<{ externalId?: string }>;
+  /** Mensagem interativa: imagem (opcional) + botões de resposta. Opcional — canais sem
+   *  suporte (ex.: UAZAPI por ora) caem no fallback de imagem simples no chatbot. */
+  sendButtons?(params: SendButtonsParams): Promise<{ externalId?: string }>;
   /** URL da foto de perfil do contato (UAZAPI). Meta não expõe → null. */
   getProfilePicture?(phone: string): Promise<string | null>;
   /** Nome + imagem de um chat/grupo (UAZAPI). Para grupos, passe o JID `<id>@g.us`. */

@@ -140,6 +140,33 @@ export async function runChatbot(
     });
   };
 
+  /** Imagem + botões de resposta (ex.: "Ver detalhes" / "Quero esse"). Canal sem suporte
+   *  a botões (UAZAPI por ora) cai no fallback de imagem com legenda — nada quebra. */
+  const sendButtons = async (imageUrl: string, body: string, buttons: { id: string; title: string }[]) => {
+    if (!imageUrl) return;
+    const text = applyVars(body ?? "", ctx());
+    let failed = false;
+    let res: { externalId?: string } = { externalId: undefined };
+    if (provider.sendButtons) {
+      res = await provider.sendButtons({ to, imageUrl, body: text, buttons }).catch((e) => {
+        failed = true;
+        void logEvent("error", "send", `Falha ao enviar botões: ${(e as Error)?.message ?? e}`, { conversationId: conv.id, channel: channel.type }, conv.organization_id);
+        return { externalId: undefined };
+      });
+    } else {
+      res = await provider.sendMedia({ to, url: imageUrl, caption: text, kind: "image" }).catch((e) => {
+        failed = true;
+        void logEvent("error", "send", `Falha ao enviar mídia (fallback botões): ${(e as Error)?.message ?? e}`, { conversationId: conv.id, channel: channel.type }, conv.organization_id);
+        return { externalId: undefined };
+      });
+    }
+    await db.from("messages").insert({
+      organization_id: conv.organization_id, conversation_id: conv.id,
+      direction: "out", sender_type: "bot", content_type: "image",
+      body: text, media_url: imageUrl, external_id: res.externalId ?? null, status: failed ? "failed" : "sent",
+    });
+  };
+
   /** Resposta da IA em áudio (TTS): sobe no storage e manda como voz. */
   const sendAudio = async (audio: { buffer: Buffer; mime: string }, transcript: string) => {
     try {
@@ -176,6 +203,7 @@ export async function runChatbot(
       conversationId: conv.id, contactPhone: conv.contact_phone, contactName: conv.contact_name,
       agent, nodeInstruction: n.data?.content, userText,
       sendToCustomer: send, sendAudioToCustomer: sendAudio, sendMediaToCustomer: sendMedia,
+      sendButtonsToCustomer: sendButtons,
     });
     if (result.decision === "transfer") {
       await routeTransfer(db, conv.organization_id, conv.id, result.transfer);

@@ -4,6 +4,7 @@ import type {
   ConnectResult,
   SendMediaParams,
   SendTextParams,
+  SendButtonsParams,
   InboundMessage,
 } from "./types";
 
@@ -66,6 +67,32 @@ export class MetaProvider implements ChannelProvider {
       to,
       type: kind,
       [kind]: { link: url, caption },
+    });
+    return { externalId: r?.messages?.[0]?.id };
+  }
+
+  /**
+   * Mensagem interativa com imagem no header + botões de RESPOSTA (até 3).
+   * Obs.: a Cloud API NÃO permite misturar botão de URL (cta_url) com botões de
+   * resposta no mesmo card — por isso "Ver detalhes" também é um botão de resposta
+   * (a IA devolve o link no chat ao recebê-lo). Título do botão ≤ 20 chars.
+   */
+  async sendButtons({ to, body, imageUrl, buttons }: SendButtonsParams) {
+    const r = await this.graph(`${this.phoneNumberId}/messages`, {
+      messaging_product: "whatsapp",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "button",
+        ...(imageUrl ? { header: { type: "image", image: { link: imageUrl } } } : {}),
+        body: { text: body },
+        action: {
+          buttons: buttons.slice(0, 3).map((b) => ({
+            type: "reply",
+            reply: { id: b.id.slice(0, 256), title: b.title.slice(0, 20) },
+          })),
+        },
+      },
     });
     return { externalId: r?.messages?.[0]?.id };
   }
@@ -244,12 +271,24 @@ export function parseMetaWebhook(payload: any): InboundMessage[] {
       const phoneNumberId = value?.metadata?.phone_number_id;
       const contactName = value?.contacts?.[0]?.profile?.name;
       for (const m of value?.messages ?? []) {
+        let contentType = (m?.type ?? "text") as InboundMessage["contentType"];
+        let body: string | undefined = m?.text?.body ?? m?.[m?.type]?.caption;
+        // Clique em botão interativo (ou item de lista): tratamos como texto. O id do botão
+        // carrega o slug do produto (ex.: "quero:difusor-felicita-250ml"), então montamos um
+        // corpo que diz a INTENÇÃO + o PRODUTO para a IA agir sem ambiguidade.
+        const reply = m?.interactive?.button_reply ?? m?.interactive?.list_reply;
+        if (reply) {
+          contentType = "text";
+          const id: string = typeof reply.id === "string" ? reply.id : "";
+          const slug = id.includes(":") ? id.split(":").slice(1).join(":") : "";
+          body = slug ? `${reply.title} (produto: ${slug})` : reply.title;
+        }
         out.push({
           channelExternalId: phoneNumberId,
           from: String(m?.from ?? "").replace(/\D/g, ""),
           contactName,
-          contentType: (m?.type ?? "text") as InboundMessage["contentType"],
-          body: m?.text?.body ?? m?.[m?.type]?.caption,
+          contentType,
+          body,
           mediaUrl: undefined, // mídia da Meta requer download via /media (etapa posterior)
           externalId: m?.id,
           timestamp: m?.timestamp,
