@@ -512,7 +512,16 @@ export async function persistInbound(messages: InboundMessage[]) {
         convAiEnabled = true;
       } else if (isNew && automationActive) {
         // 1º contato: mostra o menu e NÃO roda a IA neste turno (espera a escolha).
-        const intro = "Oi! 🌷 Posso te ajudar agora mesmo — encontro produtos, monto seu pedido e tiro dúvidas na hora. Se preferir, te passo para uma pessoa do time (a espera costuma ser ~30 min). Como você prefere?";
+        // Abertura com saudação + nome do cliente + apresentação da Caroline, em linhas
+        // curtas (legível, sem emendar tudo num parágrafo só).
+        const primeiroNome = (contact?.name ?? "").trim().split(/\s+/)[0];
+        const ola = primeiroNome ? `Olá, ${primeiroNome}! ` : "Olá! ";
+        const intro =
+          `${ola}Tudo bem? 🌷\n` +
+          `Meu nome eh Caroline, sou a atendente da Essentiale.\n\n` +
+          `Posso te ajudar agora mesmo: encontro produtos, monto seu pedido e tiro suas dúvidas na hora.\n\n` +
+          `Se preferir, te passo para uma pessoa do nosso time (a espera costuma ser ~30 min).\n\n` +
+          `Como você prefere? 👇`;
         const prov = getProvider(channel as Channel);
         if (prov.sendButtons) {
           await prov.sendButtons({
