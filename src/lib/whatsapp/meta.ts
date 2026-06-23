@@ -277,11 +277,17 @@ export function parseMetaWebhook(payload: any): InboundMessage[] {
         // carrega o slug do produto (ex.: "quero:difusor-felicita-250ml"), então montamos um
         // corpo que diz a INTENÇÃO + o PRODUTO para a IA agir sem ambiguidade.
         const reply = m?.interactive?.button_reply ?? m?.interactive?.list_reply;
+        let buttonId: string | undefined;
         if (reply) {
           contentType = "text";
           const id: string = typeof reply.id === "string" ? reply.id : "";
-          const slug = id.includes(":") ? id.split(":").slice(1).join(":") : "";
-          body = slug ? `${reply.title} (produto: ${slug})` : reply.title;
+          buttonId = id || undefined;
+          if (id.startsWith("menu:")) {
+            body = reply.title; // escolha do menu de entrada — roteada no inbound pelo buttonId
+          } else {
+            const slug = id.includes(":") ? id.split(":").slice(1).join(":") : "";
+            body = slug ? `${reply.title} (produto: ${slug})` : reply.title;
+          }
         }
         out.push({
           channelExternalId: phoneNumberId,
@@ -295,6 +301,7 @@ export function parseMetaWebhook(payload: any): InboundMessage[] {
           // Citação/resposta: a Cloud API só envia o id da mensagem citada (sem o conteúdo).
           // O inbound resolve o trecho (excerpt) buscando essa mensagem no nosso banco.
           replyTo: m?.context?.id ? { externalId: String(m.context.id) } : undefined,
+          buttonId,
         });
       }
     }

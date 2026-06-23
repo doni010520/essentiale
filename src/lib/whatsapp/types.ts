@@ -96,6 +96,7 @@ export interface InboundMessage {
   chatJid?: string; // JID completo do chat/grupo (preserva traço de jids antigos)
   reaction?: { targetExternalId: string; emoji: string }; // evento de reação
   replyTo?: { externalId?: string; excerpt?: string; author?: string }; // msg citada
+  buttonId?: string; // id do botão interativo clicado (ex.: "menu:humano", "quero:<slug>")
   fromMe?: boolean; // mensagem enviada pelo próprio número (eco do celular) → direção "out"
   chatPhoto?: string; // foto do contato/grupo (vem no objeto chat do webhook)
   chatName?: string; // nome do contato/grupo (vem no objeto chat do webhook)

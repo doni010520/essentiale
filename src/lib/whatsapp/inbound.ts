@@ -491,6 +491,49 @@ export async function persistInbound(messages: InboundMessage[]) {
       continue;
     }
 
+    // ====== MENU DE ENTRADA: IA (Caroline) ou atendente humano ======
+    // No 1º contato oferecemos a escolha. Se o cliente escolher humano, vai pra fila
+    // com uma mensagem que JÁ define a expectativa de tempo (tira a ansiedade).
+    if (!fromMe && !isGroup) {
+      if (msg.buttonId === "menu:humano") {
+        await db.from("conversations").update({ status: "queued", ai_enabled: false }).eq("id", conversationId);
+        const espera = "Combinado! Já te coloquei na fila 🌷 Nosso time costuma responder em até 30 minutos — logo alguém te chama por aqui.";
+        await getProvider(channel as Channel).sendText({ to: msg.from, text: espera }).catch(() => {});
+        await db.from("messages").insert({
+          organization_id: org, conversation_id: conversationId,
+          direction: "out", sender_type: "system", content_type: "text", body: espera, status: "sent",
+        });
+        continue; // escolheu humano → não aciona a IA
+      }
+      if (msg.buttonId === "menu:ia") {
+        // Escolheu a Caroline: garante modo IA e segue para o fluxo do chatbot abaixo.
+        await db.from("conversations").update({ status: "bot", ai_enabled: true }).eq("id", conversationId);
+        convStatus = "bot";
+        convAiEnabled = true;
+      } else if (isNew && automationActive) {
+        // 1º contato: mostra o menu e NÃO roda a IA neste turno (espera a escolha).
+        const intro = "Oi! 🌷 Posso te ajudar agora mesmo — encontro produtos, monto seu pedido e tiro dúvidas na hora. Se preferir, te passo para uma pessoa do time (a espera costuma ser ~30 min). Como você prefere?";
+        const prov = getProvider(channel as Channel);
+        if (prov.sendButtons) {
+          await prov.sendButtons({
+            to: msg.from,
+            body: intro,
+            buttons: [
+              { id: "menu:ia", title: "Comprar com Caroline" },
+              { id: "menu:humano", title: "Aguardar atendente" },
+            ],
+          }).catch(() => {});
+        } else {
+          await prov.sendText({ to: msg.from, text: `${intro}\n\n1️⃣ Comprar com a Caroline\n2️⃣ Aguardar um atendente` }).catch(() => {});
+        }
+        await db.from("messages").insert({
+          organization_id: org, conversation_id: conversationId,
+          direction: "out", sender_type: "bot", content_type: "text", body: intro, status: "sent",
+        });
+        continue;
+      }
+    }
+
     // Chatbot: roda só em mensagens recebidas (não nos ecos do próprio número) e
     // apenas quando a automação está dentro do horário configurado.
     if (automationActive && !isGroup && !fromMe && convAiEnabled && (convStatus === "bot" || isNew)) {
