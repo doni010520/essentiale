@@ -521,19 +521,19 @@ export async function persistInbound(messages: InboundMessage[]) {
           `Meu nome eh Caroline, sou a atendente da Essentiale.\n\n` +
           `Posso te ajudar agora mesmo: encontro produtos, monto seu pedido e tiro suas dúvidas na hora.\n\n` +
           `Se preferir, te passo para uma pessoa do nosso time (a espera costuma ser ~30 min).\n\n` +
-          `Como você prefere? 👇`;
+          `Como você quer seguir? 👇`;
         const prov = getProvider(channel as Channel);
         if (prov.sendButtons) {
           await prov.sendButtons({
             to: msg.from,
             body: intro,
             buttons: [
-              { id: "menu:ia", title: "Comprar com Caroline" },
+              { id: "menu:ia", title: "Nossa IA Caroline" },
               { id: "menu:humano", title: "Aguardar atendente" },
             ],
           }).catch(() => {});
         } else {
-          await prov.sendText({ to: msg.from, text: `${intro}\n\n1️⃣ Comprar com a Caroline\n2️⃣ Aguardar um atendente` }).catch(() => {});
+          await prov.sendText({ to: msg.from, text: `${intro}\n\n1️⃣ Nossa IA Caroline\n2️⃣ Aguardar atendente` }).catch(() => {});
         }
         await db.from("messages").insert({
           organization_id: org, conversation_id: conversationId,
