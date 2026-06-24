@@ -297,7 +297,9 @@ export function parseMetaWebhook(payload: any): InboundMessage[] {
           const id: string = typeof reply.id === "string" ? reply.id : "";
           buttonId = id || undefined;
           if (id.startsWith("menu:")) {
-            body = reply.title; // escolha do menu de entrada — roteada no inbound pelo buttonId
+            // Escolha do menu de entrada: o título cru ("Nossa IA Caroline") seria mal lido
+            // pela IA (parece elogio: "Nossa!"). Roteamos pelo buttonId e damos uma INTENÇÃO clara.
+            body = id === "menu:humano" ? "Quero falar com um atendente." : "Quero começar o atendimento. 🌷";
           } else {
             const slug = id.includes(":") ? id.split(":").slice(1).join(":") : "";
             body = slug ? `${reply.title} (produto: ${slug})` : reply.title;
