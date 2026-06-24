@@ -546,6 +546,11 @@ export async function persistInbound(messages: InboundMessage[]) {
     // Chatbot: roda só em mensagens recebidas (não nos ecos do próprio número) e
     // apenas quando a automação está dentro do horário configurado.
     if (automationActive && !isGroup && !fromMe && convAiEnabled && (convStatus === "bot" || isNew)) {
+      // "Digitando…" (e marca como lida na oficial) já no começo, pra humanizar a espera
+      // do debounce + geração da resposta. Best-effort, nunca bloqueia o fluxo.
+      const typer = getProvider(channel as Channel);
+      if (typer.sendTyping) await typer.sendTyping(msg.from, msg.externalId).catch(() => {});
+
       // Buffer de mensagens (debounce): se o contato envia várias mensagens em
       // sequência ("Oi", "Boa tarde"...), espera alguns segundos e processa só a
       // ÚLTIMA. Assim o bot responde uma única vez, com todo o contexto da rajada

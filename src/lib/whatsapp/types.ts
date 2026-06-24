@@ -56,6 +56,9 @@ export interface ChannelProvider {
   deleteMessage?(externalId: string): Promise<void>;
   /** Marca mensagens como lidas. */
   markRead?(externalIds: string[]): Promise<void>;
+  /** Mostra "digitando…" para o contato (e, na Meta oficial, marca a msg como lida).
+   *  `externalId` = id da mensagem recebida (exigido pela Meta). Best-effort. */
+  sendTyping?(to: string, externalId?: string): Promise<void>;
   /** Envia uma localização. */
   sendLocation?(to: string, loc: { name?: string; address?: string; latitude: number; longitude: number }): Promise<{ externalId?: string }>;
   /** Envia um contato (vCard). */

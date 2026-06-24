@@ -64,11 +64,25 @@ export class MetaProvider implements ChannelProvider {
   async sendMedia({ to, url, caption, kind }: SendMediaParams) {
     const r = await this.graph(`${this.phoneNumberId}/messages`, {
       messaging_product: "whatsapp",
-      to,
       type: kind,
+      to,
       [kind]: { link: url, caption },
     });
     return { externalId: r?.messages?.[0]?.id };
+  }
+
+  /**
+   * Mostra "digitando…" e marca a mensagem do cliente como lida (tiquinhos azuis).
+   * A animação some quando respondemos ou após ~25s. Precisa do id da mensagem recebida.
+   */
+  async sendTyping(_to: string, externalId?: string) {
+    if (!externalId) return;
+    await this.graph(`${this.phoneNumberId}/messages`, {
+      messaging_product: "whatsapp",
+      status: "read",
+      message_id: externalId,
+      typing_indicator: { type: "text" },
+    }).catch(() => {});
   }
 
   /**

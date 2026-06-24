@@ -189,6 +189,15 @@ export class UazapiProvider implements ChannelProvider {
     await this.req("/message/markread", { method: "POST", body: JSON.stringify({ id: externalIds }) });
   }
 
+  /** Mostra "digitando…" (presence composing). POST /message/presence {number,presence}. */
+  async sendTyping(to: string): Promise<void> {
+    if (!to) return;
+    await this.req("/message/presence", {
+      method: "POST",
+      body: JSON.stringify({ number: to, presence: "composing", delay: 1200 }),
+    }).catch(() => {});
+  }
+
   /** Envia uma localização. POST /send/location {number,name,address,latitude,longitude}. */
   async sendLocation(to: string, loc: { name?: string; address?: string; latitude: number; longitude: number }): Promise<{ externalId?: string }> {
     const r = await this.req("/send/location", {
